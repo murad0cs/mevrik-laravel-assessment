@@ -1,0 +1,253 @@
+{
+  "info": {
+    "name": "Mevrik Laravel Queue Assessment",
+    "description": "API collection for testing the Laravel queue system",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Queue Status",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/queue",
+          "host": ["{{base_url}}"],
+          "path": ["api", "queue"]
+        },
+        "description": "Get queue system status and available endpoints"
+      }
+    },
+    {
+      "name": "Dispatch Notification Job - Email",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": 123,\n  \"type\": \"email\",\n  \"message\": \"Your order has been confirmed and will be shipped soon\",\n  \"metadata\": {\n    \"order_id\": \"ORD-12345\",\n    \"amount\": 99.99,\n    \"currency\": \"USD\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/queue/dispatch-notification",
+          "host": ["{{base_url}}"],
+          "path": ["api", "queue", "dispatch-notification"]
+        },
+        "description": "Dispatch an email notification job to the queue"
+      }
+    },
+    {
+      "name": "Dispatch Notification Job - SMS",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": 456,\n  \"type\": \"sms\",\n  \"message\": \"Your verification code is 123456\",\n  \"metadata\": {\n    \"code\": \"123456\",\n    \"expires_in\": 300\n  }\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/queue/dispatch-notification",
+          "host": ["{{base_url}}"],
+          "path": ["api", "queue", "dispatch-notification"]
+        },
+        "description": "Dispatch an SMS notification job to the queue"
+      }
+    },
+    {
+      "name": "Dispatch Notification Job - Push",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": 789,\n  \"type\": \"push\",\n  \"message\": \"You have a new message from John Doe\",\n  \"metadata\": {\n    \"sender_id\": 101,\n    \"sender_name\": \"John Doe\",\n    \"message_id\": \"MSG-98765\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/queue/dispatch-notification",
+          "host": ["{{base_url}}"],
+          "path": ["api", "queue", "dispatch-notification"]
+        },
+        "description": "Dispatch a push notification job to the queue"
+      }
+    },
+    {
+      "name": "Dispatch Log Job - Info",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"User successfully logged in\",\n  \"level\": \"info\",\n  \"context\": {\n    \"user_id\": 123,\n    \"ip_address\": \"192.168.1.1\",\n    \"user_agent\": \"Mozilla/5.0\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/queue/dispatch-log",
+          "host": ["{{base_url}}"],
+          "path": ["api", "queue", "dispatch-log"]
+        },
+        "description": "Dispatch an info level log job to the queue"
+      }
+    },
+    {
+      "name": "Dispatch Log Job - Error",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Payment processing failed\",\n  \"level\": \"error\",\n  \"context\": {\n    \"user_id\": 456,\n    \"order_id\": \"ORD-12345\",\n    \"error_code\": \"PAYMENT_DECLINED\",\n    \"amount\": 99.99\n  }\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/queue/dispatch-log",
+          "host": ["{{base_url}}"],
+          "path": ["api", "queue", "dispatch-log"]
+        },
+        "description": "Dispatch an error level log job to the queue"
+      }
+    },
+    {
+      "name": "Dispatch Log Job - Warning",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Low stock alert for product\",\n  \"level\": \"warning\",\n  \"context\": {\n    \"product_id\": \"PROD-123\",\n    \"product_name\": \"Widget X\",\n    \"current_stock\": 5,\n    \"threshold\": 10\n  }\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/queue/dispatch-log",
+          "host": ["{{base_url}}"],
+          "path": ["api", "queue", "dispatch-log"]
+        },
+        "description": "Dispatch a warning level log job to the queue"
+      }
+    },
+    {
+      "name": "Dispatch Bulk Jobs - Notifications",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"count\": 10,\n  \"type\": \"notification\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/queue/dispatch-bulk",
+          "host": ["{{base_url}}"],
+          "path": ["api", "queue", "dispatch-bulk"]
+        },
+        "description": "Dispatch 10 notification jobs to the queue"
+      }
+    },
+    {
+      "name": "Dispatch Bulk Jobs - Logs",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"count\": 10,\n  \"type\": \"log\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/queue/dispatch-bulk",
+          "host": ["{{base_url}}"],
+          "path": ["api", "queue", "dispatch-bulk"]
+        },
+        "description": "Dispatch 10 log jobs to the queue"
+      }
+    },
+    {
+      "name": "Dispatch Bulk Jobs - Mixed",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"count\": 20,\n  \"type\": \"mixed\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/queue/dispatch-bulk",
+          "host": ["{{base_url}}"],
+          "path": ["api", "queue", "dispatch-bulk"]
+        },
+        "description": "Dispatch 20 mixed jobs (notifications and logs) to the queue"
+      }
+    },
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/health",
+          "host": ["{{base_url}}"],
+          "path": ["api", "health"]
+        },
+        "description": "Check application health status"
+      }
+    },
+    {
+      "name": "Home",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/",
+          "host": ["{{base_url}}"],
+          "path": [""]
+        },
+        "description": "Get application information"
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+/.phpunit.cache
+/node_modules
+/public/build
+/public/hot
+/public/storage
+/storage/*.key
+/vendor
+.env
+.env.backup
+.env.production
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+auth.json
+npm-debug.log
+yarn-error.log
+/.fleet
+/.idea
+/.vscode
+
+# Sensitive files
+ssh_key.pem
+*.pem
+*.key
+*.crt
+*.p12
+/scripts/server_setup.sh
+/scripts/*credentials*
+/scripts/*secret*
+deploy.tar.gz
+*.tar.gz
+
+# Server configuration files with passwords
+**/db_credentials.txt
+**/database_passwords.txt
+.env.local
+.env.staging
+
+# Deployment related
+/deployment-temp/
+/deploy/
+DEPLOYMENT_GUIDE.md

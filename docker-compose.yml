@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mevrik-app
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www
+      - ./storage:/var/www/storage
+    networks:
+      - mevrik-network
+    depends_on:
+      - db
+      - redis
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - DB_HOST=db
+      - REDIS_HOST=redis
+      - QUEUE_CONNECTION=database
+
+  nginx:
+    image: nginx:alpine
+    container_name: mevrik-nginx
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    volumes:
+      - ./:/var/www
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - mevrik-network
+    depends_on:
+      - app
+
+  db:
+    image: mysql:8.0
+    container_name: mevrik-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: mevrik_assessment
+      MYSQL_ROOT_PASSWORD: secret
+      MYSQL_PASSWORD: secret
+      MYSQL_USER: mevrik
+    volumes:
+      - dbdata:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    networks:
+      - mevrik-network
+
+  redis:
+    image: redis:alpine
+    container_name: mevrik-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - mevrik-network
+
+  queue-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mevrik-queue-worker
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www
+    command: php artisan queue:work --sleep=3 --tries=3 --max-time=3600
+    networks:
+      - mevrik-network
+    depends_on:
+      - db
+      - redis
+    environment:
+      - APP_ENV=production
+      - DB_HOST=db
+      - REDIS_HOST=redis
+      - QUEUE_CONNECTION=database
+
+networks:
+  mevrik-network:
+    driver: bridge
+
+volumes:
+  dbdata:
+    driver: local
