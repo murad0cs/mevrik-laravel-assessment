@@ -98,7 +98,8 @@ jobs:
             cd laravel-app
           else
             cd /var/www/laravel-app
-            git pull origin main
+            git fetch origin
+            git reset --hard origin/main
           fi
 
           # Install dependencies
