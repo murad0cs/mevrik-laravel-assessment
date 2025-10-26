@@ -50,8 +50,8 @@ class CustomRateLimiter
      */
     protected function resolveRequestSignature(Request $request, string $type): string
     {
-        $user = $request->user();
-        $identifier = $user ? $user->id : $request->ip();
+        // Don't try to get user if no auth guard is configured
+        $identifier = $request->ip();
 
         return sprintf(
             'rate_limit:%s:%s:%s',
