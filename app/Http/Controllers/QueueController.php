@@ -300,15 +300,29 @@ class QueueController extends Controller
     /**
      * Download processed file
      *
+     * @param Request $request
      * @param string $fileId
-     * @return BinaryFileResponse|JsonResponse
+     * @return BinaryFileResponse|JsonResponse|\Illuminate\View\View
      */
-    public function downloadProcessed(string $fileId)
+    public function downloadProcessed(Request $request, string $fileId)
     {
         try {
             $statusPath = 'processing_status/' . $fileId . '.json';
 
+            // Check if the status file exists
             if (!Storage::exists($statusPath)) {
+                // Check if this is a browser request
+                if ($request->acceptsHtml() && !$request->expectsJson()) {
+                    return view('download', [
+                        'fileId' => $fileId,
+                        'error' => 'File not found. The file ID may be incorrect or the file has expired.',
+                        'status' => 'not_found',
+                        'originalName' => null,
+                        'processingType' => null,
+                        'processedAt' => null
+                    ]);
+                }
+
                 return response()->json([
                     'status' => 'error',
                     'message' => 'File not found',
@@ -318,7 +332,32 @@ class QueueController extends Controller
 
             $statusData = json_decode(Storage::get($statusPath), true);
 
+            // If browser request and not a direct download, show the download page
+            if ($request->acceptsHtml() && !$request->expectsJson() && !$request->has('direct')) {
+                // Show the download page template
+                return view('download', [
+                    'fileId' => $fileId,
+                    'status' => $statusData['status'],
+                    'originalName' => $statusData['original_name'] ?? basename($statusData['original_file'] ?? 'Unknown'),
+                    'processingType' => $statusData['processing_type'] ?? 'unknown',
+                    'processedAt' => $statusData['completed_at'] ?? $statusData['updated_at'] ?? null,
+                    'error' => null
+                ]);
+            }
+
+            // For direct downloads and API requests, proceed with file download
             if ($statusData['status'] !== 'completed') {
+                if ($request->acceptsHtml() && !$request->expectsJson()) {
+                    return view('download', [
+                        'fileId' => $fileId,
+                        'status' => $statusData['status'],
+                        'originalName' => $statusData['original_name'] ?? basename($statusData['original_file'] ?? 'Unknown'),
+                        'processingType' => $statusData['processing_type'] ?? 'unknown',
+                        'processedAt' => null,
+                        'error' => $statusData['status'] === 'failed' ? 'File processing failed. Please try uploading again.' : null
+                    ]);
+                }
+
                 return response()->json([
                     'status' => 'error',
                     'message' => 'File processing not completed',
@@ -368,6 +407,18 @@ class QueueController extends Controller
                         $allFiles = array_diff($files, ['.', '..']);
                     }
 
+                    // Check if this is a browser request
+                    if ($request->acceptsHtml() && !$request->expectsJson()) {
+                        return view('download', [
+                            'fileId' => $fileId,
+                            'error' => 'Processed file not found. The file may still be processing or has been removed.',
+                            'status' => 'error',
+                            'originalName' => $statusData['original_name'] ?? basename($statusData['original_file'] ?? 'Unknown'),
+                            'processingType' => $statusData['processing_type'] ?? 'unknown',
+                            'processedAt' => null
+                        ]);
+                    }
+
                     return response()->json([
                         'status' => 'error',
                         'message' => 'Processed file not found after checking multiple extensions',
@@ -382,6 +433,18 @@ class QueueController extends Controller
             }
 
             if (!file_exists($processedFilePath)) {
+                // Check if this is a browser request
+                if ($request->acceptsHtml() && !$request->expectsJson()) {
+                    return view('download', [
+                        'fileId' => $fileId,
+                        'error' => 'Processed file not found at expected location. Please try uploading again.',
+                        'status' => 'error',
+                        'originalName' => $statusData['original_name'] ?? basename($statusData['original_file'] ?? 'Unknown'),
+                        'processingType' => $statusData['processing_type'] ?? 'unknown',
+                        'processedAt' => null
+                    ]);
+                }
+
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Processed file not found at expected path',
@@ -413,6 +476,18 @@ class QueueController extends Controller
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
+
+            // Check if this is a browser request
+            if ($request->acceptsHtml() && !$request->expectsJson()) {
+                return view('download', [
+                    'fileId' => $fileId,
+                    'error' => 'An error occurred while preparing your download. Please try again.',
+                    'status' => 'error',
+                    'originalName' => null,
+                    'processingType' => null,
+                    'processedAt' => null
+                ]);
+            }
 
             return response()->json([
                 'status' => 'error',
