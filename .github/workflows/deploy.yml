@@ -118,6 +118,9 @@ jobs:
           # Run migrations
           php artisan migrate --force
 
+          # Setup storage directories
+          php artisan storage:setup || true
+
           # Clear and cache configs
           php artisan config:clear
           php artisan cache:clear
@@ -125,8 +128,15 @@ jobs:
           php artisan route:cache
           php artisan view:cache
 
+          # Create required directories for file processing
+          mkdir -p /var/www/laravel-app/storage/app/uploads
+          mkdir -p /var/www/laravel-app/storage/app/processed
+          mkdir -p /var/www/laravel-app/storage/app/processing_status
+          mkdir -p /var/www/laravel-app/storage/logs/notifications
+          mkdir -p /var/www/laravel-app/storage/logs/custom
+
           # Set permissions
-          sudo chown -R constantk:www-data /var/www/laravel-app
+          sudo chown -R www-data:www-data /var/www/laravel-app
           sudo chmod -R 755 /var/www/laravel-app
           sudo chmod -R 777 /var/www/laravel-app/storage
           sudo chmod -R 777 /var/www/laravel-app/bootstrap/cache

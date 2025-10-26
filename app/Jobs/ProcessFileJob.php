@@ -37,6 +37,9 @@ class ProcessFileJob implements ShouldQueue
     public function handle(): void
     {
         try {
+            // Ensure all required directories exist with proper permissions
+            $this->ensureDirectoriesExist();
+
             Log::info('Starting file processing', [
                 'file_id' => $this->fileId,
                 'type' => $this->processingType,
@@ -234,6 +237,29 @@ class ProcessFileJob implements ShouldQueue
         $metadata .= $content;
 
         file_put_contents($output, $metadata);
+    }
+
+    /**
+     * Ensure all required directories exist with proper permissions
+     */
+    private function ensureDirectoriesExist(): void
+    {
+        $directories = [
+            storage_path('app/uploads'),
+            storage_path('app/processed'),
+            storage_path('app/processing_status'),
+            storage_path('app/notifications'),
+            storage_path('app/custom'),
+        ];
+
+        foreach ($directories as $dir) {
+            if (!file_exists($dir)) {
+                mkdir($dir, 0775, true);
+                // Try to set ownership if possible (may fail on some systems)
+                @chown($dir, 'www-data');
+                @chgrp($dir, 'www-data');
+            }
+        }
     }
 
     /**
