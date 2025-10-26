@@ -2,6 +2,72 @@
 
 This is a Laravel application I built to demonstrate a robust queue-based file processing system with automated CI/CD deployment through GitHub Actions.
 
+## Live Demo - Ready to Test!
+
+The application is **already deployed and running** with ngrok. You can test all endpoints immediately using the base URL:
+
+**Base URL:** `https://mindi-unetymologic-keyla.ngrok-free.dev`
+
+### Quick Test Examples (Copy & Paste Ready)
+
+```bash
+# 1. Check if the system is running
+curl https://mindi-unetymologic-keyla.ngrok-free.dev/api/health
+
+# 2. Check queue status
+curl https://mindi-unetymologic-keyla.ngrok-free.dev/api/queue/status
+
+# 3. Send a test notification
+curl -X POST https://mindi-unetymologic-keyla.ngrok-free.dev/api/queue/dispatch-notification \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": 123,
+    "type": "email",
+    "message": "Testing the live deployment!"
+  }'
+
+# 4. Upload a file for processing
+curl -X POST https://mindi-unetymologic-keyla.ngrok-free.dev/api/queue/upload-file \
+  -F "file=@test.txt" \
+  -F "processing_type=text_transform" \
+  -F "user_id=123"
+```
+
+### All Live Endpoints Ready for Testing
+
+| Endpoint | Method | Live URL |
+|----------|--------|----------|
+| Health Check | GET | https://mindi-unetymologic-keyla.ngrok-free.dev/api/health |
+| Queue Status | GET | https://mindi-unetymologic-keyla.ngrok-free.dev/api/queue/status |
+| Dispatch Notification | POST | https://mindi-unetymologic-keyla.ngrok-free.dev/api/queue/dispatch-notification |
+| Dispatch Log | POST | https://mindi-unetymologic-keyla.ngrok-free.dev/api/queue/dispatch-log |
+| Dispatch Bulk Jobs | POST | https://mindi-unetymologic-keyla.ngrok-free.dev/api/queue/dispatch-bulk |
+| Upload File | POST | https://mindi-unetymologic-keyla.ngrok-free.dev/api/queue/upload-file |
+| Check File Status | GET | https://mindi-unetymologic-keyla.ngrok-free.dev/api/queue/file-status/{fileId} |
+| Download File | GET | https://mindi-unetymologic-keyla.ngrok-free.dev/api/queue/download/{fileId} |
+
+### Example: Complete File Processing Flow
+
+```bash
+# Step 1: Upload a file (save the file_id from response)
+curl -X POST https://mindi-unetymologic-keyla.ngrok-free.dev/api/queue/upload-file \
+  -F "file=@test.txt" \
+  -F "processing_type=text_transform" \
+  -F "user_id=123"
+
+# Response will include file_id like: "file_id": "abc123..."
+
+# Step 2: Check processing status
+curl https://mindi-unetymologic-keyla.ngrok-free.dev/api/queue/file-status/abc123
+
+# Step 3: Download processed file when ready
+curl https://mindi-unetymologic-keyla.ngrok-free.dev/api/queue/download/abc123 -o processed.txt
+```
+
+### Postman Collection
+
+For easier testing, import the included `postman_collection_live.json` file into Postman. The collection already has the live URL configured.
+
 ## What This Project Does
 
 The application processes uploaded files through a queue system, supporting various file types like text, CSV, JSON, and images. Each file gets processed asynchronously, and you can track the status and download the results when ready. Pretty neat for handling heavy file operations without blocking the main application!
@@ -139,7 +205,120 @@ The application includes several queue jobs:
 
 ## API Endpoints
 
-### File Processing (Main Feature)
+### Health Check
+
+**Check system health:**
+```bash
+GET /api/health
+```
+Response:
+```json
+{
+    "status": "healthy",
+    "timestamp": "2025-10-26 15:30:00",
+    "services": {
+        "queue": "operational",
+        "database": "operational"
+    }
+}
+```
+
+### Core Queue Operations
+
+**Check queue status:**
+```bash
+GET /api/queue
+GET /api/queue/status
+```
+Response:
+```json
+{
+    "status": "success",
+    "queue_stats": {
+        "pending_jobs": 5,
+        "failed_jobs": 0,
+        "workers_active": 4
+    },
+    "file_processing_stats": {
+        "queued": 2,
+        "processing": 1,
+        "completed": 10,
+        "failed": 0
+    }
+}
+```
+
+**Dispatch notification job:**
+```bash
+POST /api/queue/dispatch-notification
+Content-Type: application/json
+
+{
+    "user_id": 123,
+    "type": "email",  // email, sms, push, alert
+    "message": "Your order has been shipped",
+    "metadata": {
+        "order_id": "ORD-12345",
+        "tracking": "TRK-98765"
+    }
+}
+```
+Response:
+```json
+{
+    "status": "success",
+    "message": "Notification job dispatched successfully",
+    "job_id": "abc-123-def",
+    "type": "email",
+    "user_id": 123
+}
+```
+
+**Dispatch logging job:**
+```bash
+POST /api/queue/dispatch-log
+Content-Type: application/json
+
+{
+    "message": "User login successful",
+    "level": "info",  // emergency, alert, critical, error, warning, notice, info, debug
+    "context": {
+        "user_id": 123,
+        "ip": "192.168.1.1"
+    }
+}
+```
+Response:
+```json
+{
+    "status": "success",
+    "message": "Log job dispatched successfully",
+    "job_id": "xyz-789-ghi",
+    "level": "info"
+}
+```
+
+**Dispatch bulk jobs (for testing):**
+```bash
+POST /api/queue/dispatch-bulk
+Content-Type: application/json
+
+{
+    "count": 10,
+    "type": "notification"  // notification, log, mixed
+}
+```
+Response:
+```json
+{
+    "status": "success",
+    "message": "10 jobs dispatched successfully",
+    "type": "notification",
+    "job_ids": ["job-1", "job-2", "..."]
+}
+```
+
+### File Processing Operations
 
 **Upload a file for processing:**
 ```bash
@@ -149,44 +328,87 @@ Content-Type: multipart/form-data
 Parameters:
 - file: The file to upload (max 10MB)
 - processing_type: text_transform|csv_analyze|json_format|image_resize|metadata
-- user_id: Optional user identifier
+- user_id: Optional user identifier (default: 1)
+```
+Response:
+```json
+{
+    "status": "success",
+    "message": "File uploaded and queued for processing",
+    "file_id": "file_abc123",
+    "processing_type": "text_transform",
+    "queue_position": 3
+}
 ```
 
-**Check processing status:**
+**Check file processing status:**
 ```bash
 GET /api/queue/file-status/{fileId}
+```
+Response:
+```json
+{
+    "status": "success",
+    "file_id": "file_abc123",
+    "processing_status": "completed",  // queued, processing, completed, failed
+    "processing_type": "text_transform",
+    "original_name": "document.txt",
+    "processed_at": "2025-10-26 15:35:00",
+    "download_url": "/api/queue/download/file_abc123"
+}
 ```
 
 **Download processed file:**
 ```bash
 GET /api/queue/download/{fileId}
 ```
+Returns the processed file as download or error message if not ready.
 
-### Queue Management
+### Professional API v2 Endpoints
 
-**Check queue health:**
+The application also includes v2 endpoints with enhanced architecture:
+
+**Upload file (v2):**
 ```bash
-GET /api/health
-GET /api/queue/status
+POST /api/v2/files/upload
+Content-Type: multipart/form-data
+
+Parameters:
+- file: The file to upload
+- processing_type: text_transform|csv_analyze|json_format|image_resize|metadata
 ```
 
-**Dispatch notification jobs:**
+**Check status (v2):**
 ```bash
-POST /api/queue/dispatch-notification
-{
-    "user_id": 123,
-    "type": "email",
-    "message": "Your file is ready!",
-    "metadata": {"file_id": "abc-123"}
-}
+GET /api/v2/files/{fileId}/status
 ```
 
-**Bulk job creation (for testing):**
+**Download file (v2):**
 ```bash
-POST /api/queue/dispatch-bulk
+GET /api/v2/files/{fileId}/download
+```
+
+**Get statistics (v2):**
+```bash
+GET /api/v2/files/statistics
+```
+Response:
+```json
 {
-    "count": 10,
-    "type": "notification"
+    "total_files": 156,
+    "processing_types": {
+        "text_transform": 45,
+        "csv_analyze": 32,
+        "json_format": 28,
+        "image_resize": 25,
+        "metadata": 26
+    },
+    "status_breakdown": {
+        "completed": 140,
+        "processing": 5,
+        "queued": 8,
+        "failed": 3
+    }
 }
 ```
 
@@ -207,24 +429,43 @@ php artisan test --filter=BasicTest
 
 ### Manual Testing with Postman
 
-I've included a Postman collection (`postman_collection_live.json`) with all endpoints configured. Just import it and update the base URL.
+Import the included `postman_collection_live.json` file into Postman. The collection already has the live URL configured.
 
-### Quick Test with cURL
+### Local Development Testing
+
+For local testing, replace the live URL with `http://localhost:8000` in the examples above. Here are a few quick examples:
 
 ```bash
-# Upload a text file
+# Check health
+curl http://localhost:8000/api/health
+
+# Send notification
+curl -X POST http://localhost:8000/api/queue/dispatch-notification \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": 123, "type": "email", "message": "Test notification"}'
+
+# Upload file
 curl -X POST http://localhost:8000/api/queue/upload-file \
-  -F "file=@sample.txt" \
-  -F "processing_type=text_transform" \
-  -F "user_id=123"
-
-# You'll get a response with file_id
-# Use it to check status
-curl http://localhost:8000/api/queue/file-status/{file_id}
-
-# When status is "completed", download the result
-curl http://localhost:8000/api/queue/download/{file_id} -o result.txt
+  -F "file=@test.txt" \
+  -F "processing_type=text_transform"
 ```
+
+### Setting up ngrok for Local Development
+
+If you need to expose your local development server:
+
+```bash
+# 1. Install ngrok from https://ngrok.com/download
+# 2. Start your Laravel application
+php artisan serve --port=8000
+
+# 3. In another terminal, start ngrok tunnel
+ngrok http 8000
+
+# 4. Use the HTTPS URL from ngrok output (e.g., https://abc123.ngrok-free.app)
+```
+
+**Note:** ngrok URLs change each time you restart the tunnel unless you have a paid account with reserved domains.
 
 ## Deployment Process
 
@@ -246,16 +487,16 @@ The repository includes a complete CI/CD pipeline (`.github/workflows/deploy.yml
 
 ### Setting Up CI/CD
 
-1. **Add SSH key to GitHub Secrets:**
+1. **Configure GitHub Secrets:**
    - Go to repository Settings → Secrets → Actions
-   - Add new secret: `SSH_PRIVATE_KEY`
-   - Paste your private key content
+   - Add required secrets:
+     - `SSH_PRIVATE_KEY`: Your deployment SSH key
+     - `DEPLOY_HOST`: Your server IP/hostname
+     - `DEPLOY_USER`: Your deployment user
+     - `DB_PASSWORD`: Production database password
 
-2. **Add database password (if needed):**
-   - Add secret: `DB_PASSWORD`
-   - Use your production database password
-
-That's it! Push to main branch and watch the magic happen.
+2. **Deploy:**
+   - Push to main branch to trigger automatic deployment
 
 ### Manual Deployment Steps
 
@@ -422,9 +663,9 @@ If you run into issues:
 3. Verify database connection
 4. Check file permissions
 
-## Author
+## License
 
-Built by Murad for the Software Engineer assessment.
+This project is open source and available for educational purposes.
 
 ---
 
