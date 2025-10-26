@@ -85,8 +85,8 @@ jobs:
     - name: Deploy to Production Server
       uses: appleboy/ssh-action@v0.1.5
       with:
-        host: 4.145.113.8
-        username: constantk
+        host: ${{ secrets.DEPLOY_HOST }}
+        username: ${{ secrets.DEPLOY_USER }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
           # Check if repo exists, clone or pull
@@ -98,8 +98,25 @@ jobs:
             cd laravel-app
           else
             cd /var/www/laravel-app
-            git fetch origin
-            git reset --hard origin/main
+            # Fix git permissions temporarily for pull
+            sudo chown -R constantk:www-data .git
+
+            # Pull latest code with error checking
+            if ! git fetch origin; then
+              echo "ERROR: Failed to fetch from origin"
+              exit 1
+            fi
+
+            if ! git reset --hard origin/main; then
+              echo "ERROR: Failed to reset to origin/main"
+              exit 1
+            fi
+
+            echo "Successfully updated to latest code"
+            git log --oneline -1
+
+            # Restore ownership after git operations
+            sudo chown -R www-data:www-data .
           fi
 
           # Install dependencies

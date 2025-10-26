@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\QueueController;
+use App\Http\Controllers\Api\FileController;
 
 /*
 |--------------------------------------------------------------------------
@@ -33,6 +34,14 @@ Route::prefix('queue')->group(function () {
     Route::post('/upload-file', [QueueController::class, 'uploadFile']);
     Route::get('/file-status/{fileId}', [QueueController::class, 'fileStatus']);
     Route::get('/download/{fileId}', [QueueController::class, 'downloadProcessed']);
+});
+
+// Professional API routes (v2) - Using Service Layer Architecture
+Route::prefix('v2/files')->name('api.file.')->group(function () {
+    Route::post('/upload', [FileController::class, 'upload'])->name('upload');
+    Route::get('/{fileId}/status', [FileController::class, 'status'])->name('status');
+    Route::get('/{fileId}/download', [FileController::class, 'download'])->name('download');
+    Route::get('/statistics', [FileController::class, 'statistics'])->name('statistics');
 });
 
 // Health check endpoint
