@@ -381,7 +381,18 @@ Response:
 ```bash
 GET /api/queue/download/{fileId}
 ```
-Returns the processed file as download or error message if not ready.
+Returns the processed file as download or shows a beautiful download page with:
+- File information display
+- Auto-download countdown (2 seconds)
+- Manual download button
+- Processing status tracking
+- Auto-refresh for files still processing
+
+**Download Options:**
+- Browser access: Shows download page with auto-download
+- API access: Returns file directly
+- Direct download: Add `?direct=1` to bypass the page
+- Disable auto-download: Add `?noauto=1` for manual only
 
 ### Professional API v2 Endpoints
 
@@ -660,6 +671,35 @@ sudo chmod -R 775 storage bootstrap/cache
 sudo supervisorctl restart laravel-worker:*
 ```
 
+### HTTPS Configuration for ngrok/Proxy Deployments
+
+When deploying behind a reverse proxy (like ngrok, Cloudflare, or a load balancer), you need to configure Laravel to trust the proxy and use HTTPS URLs:
+
+1. **Update .env file:**
+```env
+# Use HTTPS URL for production/ngrok
+APP_URL=https://your-domain.ngrok-free.dev
+```
+
+2. **Trust Proxies Configuration:**
+The application automatically trusts proxies (`app/Http/Middleware/TrustProxies.php`):
+```php
+protected $proxies = '*'; // Trusts all proxies
+```
+
+3. **Force HTTPS in Production:**
+The AppServiceProvider automatically forces HTTPS when:
+- Running in production environment
+- Behind ngrok (detected by hostname)
+- Receiving HTTPS forwarded headers
+
+4. **Clear caches after configuration:**
+```bash
+php artisan config:clear
+php artisan cache:clear
+php artisan config:cache
+```
+
 ## Architecture Overview
 
 The application implements enterprise-level patterns and best practices:
@@ -689,6 +729,9 @@ The application implements enterprise-level patterns and best practices:
 - **API Rate Limiting** - Protection against abuse
 - **Comprehensive Testing** - 100% coverage of critical paths
 - **Health Monitoring** - Real-time system health checks
+- **Professional Download Page** - Beautiful UI with auto-download functionality
+- **HTTPS/Proxy Support** - Secure file downloads behind reverse proxies
+- **Mixed Content Protection** - Proper HTTPS handling for ngrok deployments
 
 This architecture ensures the application is:
 - **Scalable** - Can handle enterprise-level loads
@@ -747,6 +790,36 @@ Check PHP settings:
 upload_max_filesize = 10M
 post_max_size = 10M
 ```
+
+**Mixed Content Error (HTTPS issues)?**
+If downloads are blocked with "Mixed Content" errors in browser:
+
+1. **Ensure APP_URL uses HTTPS in .env:**
+```env
+APP_URL=https://your-domain.ngrok-free.dev
+```
+
+2. **Clear all caches:**
+```bash
+php artisan config:clear
+php artisan cache:clear
+php artisan route:clear
+php artisan view:clear
+php artisan config:cache
+```
+
+3. **Restart PHP-FPM:**
+```bash
+sudo systemctl restart php8.2-fpm
+```
+
+4. **Check browser console (F12)** for specific errors
+
+**Download not working?**
+- Check if pop-up blocker is preventing downloads
+- Try adding `?direct=1` to download URL for direct download
+- Verify file exists in `storage/app/processed/`
+- Check Laravel logs: `tail -n 50 storage/logs/laravel.log`
 
 ### Log Files
 
