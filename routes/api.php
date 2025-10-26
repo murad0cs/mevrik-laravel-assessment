@@ -2,8 +2,11 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Redis;
 use App\Http\Controllers\QueueController;
 use App\Http\Controllers\Api\FileController;
+use App\Http\Controllers\HealthController;
 
 /*
 |--------------------------------------------------------------------------
@@ -38,7 +41,7 @@ Route::prefix('queue')->group(function () {
     // File processing endpoints (moderate rate limit - 30/min)
     Route::middleware(['rate.limit:moderate'])->group(function () {
         Route::post('/upload-file', [QueueController::class, 'uploadFile']);
-        Route::get('/download/{fileId}', [QueueController::class, 'downloadProcessed']);
+        Route::get('/download/{fileId}', [QueueController::class, 'downloadProcessed'])->name('queue.download');
     });
 });
 
@@ -50,43 +53,6 @@ Route::prefix('v2/files')->name('api.file.')->middleware(['rate.limit:moderate']
     Route::get('/statistics', [FileController::class, 'statistics'])->name('statistics');
 });
 
-// Health check endpoint (no rate limit - monitoring purposes)
-Route::get('/health', function () {
-    $queueHealthy = true;
-    $dbHealthy = true;
-
-    try {
-        // Check database connection
-        \DB::connection()->getPdo();
-        $pendingJobs = \DB::table('jobs')->count();
-        $failedJobs = \DB::table('failed_jobs')->count();
-    } catch (\Exception $e) {
-        $dbHealthy = false;
-        $pendingJobs = 0;
-        $failedJobs = 0;
-    }
-
-    try {
-        // Check Redis connection if configured
-        if (config('queue.default') === 'redis') {
-            \Redis::ping();
-        }
-    } catch (\Exception $e) {
-        $queueHealthy = false;
-    }
-
-    $status = $queueHealthy && $dbHealthy ? 'healthy' : 'degraded';
-
-    return response()->json([
-        'status' => $status,
-        'timestamp' => now()->toDateTimeString(),
-        'services' => [
-            'queue' => $queueHealthy ? 'operational' : 'degraded',
-            'database' => $dbHealthy ? 'operational' : 'degraded',
-        ],
-        'metrics' => [
-            'pending_jobs' => $pendingJobs,
-            'failed_jobs' => $failedJobs,
-        ],
-    ], $status === 'healthy' ? 200 : 503);
-});
+// Health check endpoints (no rate limit - monitoring purposes)
+Route::get('/health', [HealthController::class, 'check']);
+Route::get('/ping', [HealthController::class, 'ping']);
