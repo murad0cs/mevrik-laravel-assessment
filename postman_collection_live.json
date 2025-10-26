@@ -1,0 +1,196 @@
+{
+  "info": {
+    "name": "Mevrik Laravel Queue Assessment - LIVE",
+    "description": "API collection for testing the Laravel queue system with live ngrok URL",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/health",
+          "host": ["{{base_url}}"],
+          "path": ["api", "health"]
+        },
+        "description": "Check application health status"
+      }
+    },
+    {
+      "name": "Queue Status",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/queue",
+          "host": ["{{base_url}}"],
+          "path": ["api", "queue"]
+        },
+        "description": "Get queue system status"
+      }
+    },
+    {
+      "name": "Create Notification Job - Email",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": 123,\n  \"type\": \"email\",\n  \"message\": \"Your order has been confirmed\",\n  \"metadata\": {\n    \"order_id\": \"ORD-12345\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/queue/dispatch-notification",
+          "host": ["{{base_url}}"],
+          "path": ["api", "queue", "dispatch-notification"]
+        },
+        "description": "Create an email notification job"
+      }
+    },
+    {
+      "name": "Create Notification Job - SMS",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": 456,\n  \"type\": \"sms\",\n  \"message\": \"Your verification code is 123456\",\n  \"metadata\": {\n    \"code\": \"123456\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/queue/dispatch-notification",
+          "host": ["{{base_url}}"],
+          "path": ["api", "queue", "dispatch-notification"]
+        },
+        "description": "Create an SMS notification job"
+      }
+    },
+    {
+      "name": "Create Notification Job - Push",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": 789,\n  \"type\": \"push\",\n  \"message\": \"You have a new message\",\n  \"metadata\": {\n    \"sender\": \"John Doe\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/queue/dispatch-notification",
+          "host": ["{{base_url}}"],
+          "path": ["api", "queue", "dispatch-notification"]
+        },
+        "description": "Create a push notification job"
+      }
+    },
+    {
+      "name": "Create Log Job - Info",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"User logged in successfully\",\n  \"level\": \"info\",\n  \"context\": {\n    \"user_id\": 123,\n    \"ip\": \"192.168.1.1\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/queue/dispatch-log",
+          "host": ["{{base_url}}"],
+          "path": ["api", "queue", "dispatch-log"]
+        },
+        "description": "Create an info log job"
+      }
+    },
+    {
+      "name": "Create Log Job - Error",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Payment processing failed\",\n  \"level\": \"error\",\n  \"context\": {\n    \"error_code\": \"PAYMENT_DECLINED\",\n    \"amount\": 99.99\n  }\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/queue/dispatch-log",
+          "host": ["{{base_url}}"],
+          "path": ["api", "queue", "dispatch-log"]
+        },
+        "description": "Create an error log job"
+      }
+    },
+    {
+      "name": "Create Bulk Jobs - Notifications",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"count\": 10,\n  \"type\": \"notification\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/queue/dispatch-bulk",
+          "host": ["{{base_url}}"],
+          "path": ["api", "queue", "dispatch-bulk"]
+        },
+        "description": "Create 10 notification jobs"
+      }
+    },
+    {
+      "name": "Create Bulk Jobs - Logs",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"count\": 10,\n  \"type\": \"log\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/queue/dispatch-bulk",
+          "host": ["{{base_url}}"],
+          "path": ["api", "queue", "dispatch-bulk"]
+        },
+        "description": "Create 10 log jobs"
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://mindi-unetymologic-keyla.ngrok-free.dev",
+      "type": "string"
+    }
+  ]
+}
