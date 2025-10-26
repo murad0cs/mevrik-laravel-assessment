@@ -94,12 +94,12 @@ jobs:
             cd /var/www
             sudo rm -rf laravel-app
             sudo git clone https://github.com/${{ github.repository }}.git laravel-app
-            sudo chown -R constantk:www-data laravel-app
+            sudo chown -R ${{ secrets.DEPLOY_USER }}:www-data laravel-app
             cd laravel-app
           else
             cd /var/www/laravel-app
-            # Fix git permissions temporarily for pull
-            sudo chown -R constantk:www-data .git
+            # Fix ALL permissions temporarily for git operations (not just .git)
+            sudo chown -R ${{ secrets.DEPLOY_USER }}:www-data /var/www/laravel-app
 
             # Pull latest code with error checking
             if ! git fetch origin; then
@@ -116,7 +116,7 @@ jobs:
             git log --oneline -1
 
             # Restore ownership after git operations
-            sudo chown -R www-data:www-data .
+            sudo chown -R www-data:www-data /var/www/laravel-app
           fi
 
           # Install dependencies
