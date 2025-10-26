@@ -105,6 +105,10 @@ jobs:
             cd laravel-app
           else
             cd /var/www/laravel-app
+
+            # Configure git to work with this directory regardless of ownership
+            sudo git config --global --add safe.directory /var/www/laravel-app
+
             # Fix ALL permissions temporarily for git operations (not just .git)
             sudo chown -R ${{ secrets.DEPLOY_USER }}:www-data /var/www/laravel-app
 
