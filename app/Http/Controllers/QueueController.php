@@ -9,6 +9,8 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -330,7 +332,7 @@ class QueueController extends Controller
             // Check if processed_file field exists
             if (!isset($statusData['processed_file']) || empty($statusData['processed_file'])) {
                 // Log for debugging
-                \Log::warning('Missing processed_file field for: ' . $fileId, ['status_data' => $statusData]);
+                Log::warning('Missing processed_file field for: ' . $fileId, ['status_data' => $statusData]);
 
                 // Try to find the processed file using the file_id pattern
                 // Get the original file extension if available
@@ -352,7 +354,7 @@ class QueueController extends Controller
                         if (file_exists($testPath)) {
                             $processedFilePath = $testPath;
                             $processedFileName = $testFileName;
-                            \Log::info('Found processed file: ' . $processedFileName);
+                            Log::info('Found processed file: ' . $processedFileName);
                             break;
                         }
                     }
@@ -407,7 +409,7 @@ class QueueController extends Controller
             );
 
         } catch (\Exception $e) {
-            \Log::error('Download error for file: ' . $fileId, [
+            Log::error('Download error for file: ' . $fileId, [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
@@ -428,8 +430,8 @@ class QueueController extends Controller
      */
     public function queueStatus(): JsonResponse
     {
-        $pendingJobs = \DB::table('jobs')->count();
-        $failedJobs = \DB::table('failed_jobs')->count();
+        $pendingJobs = DB::table('jobs')->count();
+        $failedJobs = DB::table('failed_jobs')->count();
 
         // Count processing status files
         $processingStats = [

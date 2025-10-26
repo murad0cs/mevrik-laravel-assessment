@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+         stopOnFailure="true"
+         executionOrder="fastest"
+         beStrictAboutOutputDuringTests="false"
+>
+    <testsuites>
+        <!-- Fast tests only for CI -->
+        <testsuite name="CI">
+            <file>tests/Feature/BasicTest.php</file>
+            <file>tests/Feature/QueueJobTest.php</file>
+            <file>tests/Unit/FileProcessingServiceTest.php</file>
+        </testsuite>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Feature">
+            <directory>tests/Feature</directory>
+            <!-- Exclude slow integration tests in CI -->
+            <exclude>tests/Feature/QueueIntegrationTest.php</exclude>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>app</directory>
+        </include>
+    </source>
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="BCRYPT_ROUNDS" value="4"/>
+        <env name="CACHE_DRIVER" value="array"/>
+        <env name="DB_CONNECTION" value="mysql"/>
+        <env name="DB_DATABASE" value="laravel_test"/>
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="PULSE_ENABLED" value="false"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="TELESCOPE_ENABLED" value="false"/>
+        <!-- Speed optimizations -->
+        <env name="REDIS_CLIENT" value="array"/>
+        <ini name="memory_limit" value="512M"/>
+    </php>
+</phpunit>
