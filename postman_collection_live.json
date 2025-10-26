@@ -184,6 +184,146 @@
         },
         "description": "Create 10 log jobs"
       }
+    },
+    {
+      "name": "Enhanced Queue Status",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/queue/status",
+          "host": ["{{base_url}}"],
+          "path": ["api", "queue", "status"]
+        },
+        "description": "Get detailed queue statistics including file processing stats"
+      }
+    },
+    {
+      "name": "Upload File - Text Transform",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "description": "Text file to transform"
+            },
+            {
+              "key": "processing_type",
+              "value": "text_transform",
+              "type": "text",
+              "description": "Options: text_transform, csv_analyze, json_format, image_resize, metadata"
+            },
+            {
+              "key": "user_id",
+              "value": "123",
+              "type": "text",
+              "description": "Optional user ID"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/api/queue/upload-file",
+          "host": ["{{base_url}}"],
+          "path": ["api", "queue", "upload-file"]
+        },
+        "description": "Upload a text file for transformation (uppercase + line numbers)"
+      }
+    },
+    {
+      "name": "Upload File - CSV Analysis",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "description": "CSV file to analyze"
+            },
+            {
+              "key": "processing_type",
+              "value": "csv_analyze",
+              "type": "text"
+            },
+            {
+              "key": "user_id",
+              "value": "456",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/api/queue/upload-file",
+          "host": ["{{base_url}}"],
+          "path": ["api", "queue", "upload-file"]
+        },
+        "description": "Upload a CSV file for statistical analysis"
+      }
+    },
+    {
+      "name": "Upload File - JSON Format",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "description": "JSON file to format"
+            },
+            {
+              "key": "processing_type",
+              "value": "json_format",
+              "type": "text"
+            },
+            {
+              "key": "user_id",
+              "value": "789",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/api/queue/upload-file",
+          "host": ["{{base_url}}"],
+          "path": ["api", "queue", "upload-file"]
+        },
+        "description": "Upload a JSON file for validation and formatting"
+      }
+    },
+    {
+      "name": "Check File Processing Status",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/queue/file-status/{{file_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["api", "queue", "file-status", "{{file_id}}"]
+        },
+        "description": "Check the processing status of an uploaded file. Replace {{file_id}} with the ID from upload response"
+      }
+    },
+    {
+      "name": "Download Processed File",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/queue/download/{{file_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["api", "queue", "download", "{{file_id}}"]
+        },
+        "description": "Download the processed file when status is 'completed'"
+      }
     }
   ],
   "variable": [
@@ -191,6 +331,12 @@
       "key": "base_url",
       "value": "https://mindi-unetymologic-keyla.ngrok-free.dev",
       "type": "string"
+    },
+    {
+      "key": "file_id",
+      "value": "",
+      "type": "string",
+      "description": "File ID from upload response - used for status check and download"
     }
   ]
 }
