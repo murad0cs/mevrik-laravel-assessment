@@ -122,6 +122,15 @@ jobs:
             echo "Successfully updated to latest code"
             git log --oneline -1
 
+            # Verify critical files are updated (add more checks as needed)
+            echo "Verifying file updates..."
+            if grep -q "use Illuminate\\\Support\\\Facades\\\Log" app/Http/Controllers/QueueController.php; then
+              echo "QueueController has Log facade"
+            else
+              echo "WARNING: QueueController missing Log facade - forcing checkout"
+              git checkout --force HEAD -- app/Http/Controllers/QueueController.php
+            fi
+
             # Restore ownership after git operations
             sudo chown -R www-data:www-data /var/www/laravel-app
           fi
@@ -171,6 +180,19 @@ jobs:
           # Clear and cache configs
           php artisan config:clear
           php artisan cache:clear
+          php artisan route:clear
+          php artisan view:clear
+
+          # Clear PHP OpCache if available
+          if php -r "echo function_exists('opcache_reset') ? 'yes' : 'no';" | grep -q "yes"; then
+            echo "Clearing PHP OpCache..."
+            php -r "opcache_reset();"
+          fi
+
+          # Restart PHP-FPM to ensure clean state
+          sudo systemctl reload php8.2-fpm || true
+
+          # Now cache after clearing everything
           php artisan config:cache
           php artisan route:cache
           php artisan view:cache
