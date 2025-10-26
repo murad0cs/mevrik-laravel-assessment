@@ -267,12 +267,7 @@ class ProcessFileJob implements ShouldQueue
      */
     private function updateStatus(string $status, string $error = null): void
     {
-        $statusFile = storage_path('app/processing_status/' . $this->fileId . '.json');
-        $statusDir = dirname($statusFile);
-
-        if (!file_exists($statusDir)) {
-            mkdir($statusDir, 0755, true);
-        }
+        $statusPath = 'processing_status/' . $this->fileId . '.json';
 
         $statusData = [
             'file_id' => $this->fileId,
@@ -288,7 +283,8 @@ class ProcessFileJob implements ShouldQueue
             $statusData['download_ready'] = true;
         }
 
-        file_put_contents($statusFile, json_encode($statusData, JSON_PRETTY_PRINT));
+        // Use Storage facade which handles permissions better
+        Storage::put($statusPath, json_encode($statusData, JSON_PRETTY_PRINT));
     }
 
     /**
@@ -296,10 +292,10 @@ class ProcessFileJob implements ShouldQueue
      */
     private function storeProcessedFile(string $processedFileName): void
     {
-        $infoFile = storage_path('app/processing_status/' . $this->fileId . '.json');
-        $data = json_decode(file_get_contents($infoFile), true);
+        $statusPath = 'processing_status/' . $this->fileId . '.json';
+        $data = json_decode(Storage::get($statusPath), true);
         $data['processed_file'] = $processedFileName;
         $data['completed_at'] = now()->toDateTimeString();
-        file_put_contents($infoFile, json_encode($data, JSON_PRETTY_PRINT));
+        Storage::put($statusPath, json_encode($data, JSON_PRETTY_PRINT));
     }
 }

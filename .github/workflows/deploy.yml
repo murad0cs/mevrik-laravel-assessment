@@ -118,8 +118,8 @@ jobs:
           # Run migrations
           php artisan migrate --force
 
-          # Setup storage directories
-          php artisan storage:setup || true
+          # Setup storage directories with proper permissions
+          php artisan storage:setup
 
           # Clear and cache configs
           php artisan config:clear
@@ -128,18 +128,30 @@ jobs:
           php artisan route:cache
           php artisan view:cache
 
-          # Create required directories for file processing
-          mkdir -p /var/www/laravel-app/storage/app/uploads
-          mkdir -p /var/www/laravel-app/storage/app/processed
-          mkdir -p /var/www/laravel-app/storage/app/processing_status
-          mkdir -p /var/www/laravel-app/storage/logs/notifications
-          mkdir -p /var/www/laravel-app/storage/logs/custom
-
-          # Set permissions
+          # Ensure web server and queue workers have same permissions
           sudo chown -R www-data:www-data /var/www/laravel-app
           sudo chmod -R 755 /var/www/laravel-app
           sudo chmod -R 777 /var/www/laravel-app/storage
           sudo chmod -R 777 /var/www/laravel-app/bootstrap/cache
+
+          # Update supervisor to run workers as www-data
+          sudo tee /etc/supervisor/conf.d/laravel-worker.conf > /dev/null <<EOF
+          [program:laravel-worker]
+          process_name=%(program_name)s_%(process_num)02d
+          command=php /var/www/laravel-app/artisan queue:work --sleep=3 --tries=3 --timeout=90
+          autostart=true
+          autorestart=true
+          stopasgroup=true
+          killasgroup=true
+          user=www-data
+          numprocs=4
+          redirect_stderr=true
+          stdout_logfile=/var/www/laravel-app/storage/logs/worker.log
+          stopwaitsecs=3600
+          EOF
+
+          sudo supervisorctl reread
+          sudo supervisorctl update
 
           # Restart queue workers
           sudo supervisorctl restart laravel-worker:* || true
