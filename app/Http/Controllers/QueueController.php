@@ -303,65 +303,122 @@ class QueueController extends Controller
      */
     public function downloadProcessed(string $fileId)
     {
-        $statusPath = 'processing_status/' . $fileId . '.json';
+        try {
+            $statusPath = 'processing_status/' . $fileId . '.json';
 
-        if (!Storage::exists($statusPath)) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'File not found',
-            ], 404);
-        }
+            if (!Storage::exists($statusPath)) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'File not found',
+                    'file_id' => $fileId,
+                ], 404);
+            }
 
-        $statusData = json_decode(Storage::get($statusPath), true);
+            $statusData = json_decode(Storage::get($statusPath), true);
 
-        if ($statusData['status'] !== 'completed') {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'File processing not completed',
-                'current_status' => $statusData['status'],
-            ], 400);
-        }
+            if ($statusData['status'] !== 'completed') {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'File processing not completed',
+                    'current_status' => $statusData['status'],
+                ], 400);
+            }
 
-        // Check if processed_file field exists
-        if (!isset($statusData['processed_file'])) {
-            // Try to find the processed file using the file_id
-            $processedFileName = $fileId . '_processed.txt';
-            $processedFilePath = storage_path('app/processed/' . $processedFileName);
+            $processedFilePath = null;
+            $processedFileName = null;
 
-            // Check for other extensions if .txt doesn't exist
-            if (!file_exists($processedFilePath)) {
-                $extensions = ['txt', 'json', 'csv', 'log'];
-                foreach ($extensions as $ext) {
-                    $testPath = storage_path('app/processed/' . $fileId . '_processed.' . $ext);
-                    if (file_exists($testPath)) {
-                        $processedFilePath = $testPath;
-                        $processedFileName = $fileId . '_processed.' . $ext;
-                        break;
+            // Check if processed_file field exists
+            if (!isset($statusData['processed_file']) || empty($statusData['processed_file'])) {
+                // Log for debugging
+                \Log::warning('Missing processed_file field for: ' . $fileId, ['status_data' => $statusData]);
+
+                // Try to find the processed file using the file_id pattern
+                // Get the original file extension if available
+                $originalExt = 'txt';
+                if (isset($statusData['original_file'])) {
+                    $originalExt = pathinfo($statusData['original_file'], PATHINFO_EXTENSION) ?: 'txt';
+                }
+
+                // Try with original extension first
+                $processedFileName = $fileId . '_processed.' . $originalExt;
+                $processedFilePath = storage_path('app/processed/' . $processedFileName);
+
+                // If not found, try other common extensions
+                if (!file_exists($processedFilePath)) {
+                    $extensions = ['txt', 'json', 'csv', 'log', 'xml'];
+                    foreach ($extensions as $ext) {
+                        $testFileName = $fileId . '_processed.' . $ext;
+                        $testPath = storage_path('app/processed/' . $testFileName);
+                        if (file_exists($testPath)) {
+                            $processedFilePath = $testPath;
+                            $processedFileName = $testFileName;
+                            \Log::info('Found processed file: ' . $processedFileName);
+                            break;
+                        }
                     }
                 }
-            }
-        } else {
-            $processedFileName = $statusData['processed_file'];
-            $processedFilePath = storage_path('app/processed/' . $processedFileName);
-        }
 
-        if (!file_exists($processedFilePath)) {
+                // Still not found? List all files to help debug
+                if (!file_exists($processedFilePath)) {
+                    $allFiles = [];
+                    if (is_dir(storage_path('app/processed'))) {
+                        $files = scandir(storage_path('app/processed'));
+                        $allFiles = array_diff($files, ['.', '..']);
+                    }
+
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Processed file not found after checking multiple extensions',
+                        'file_id' => $fileId,
+                        'checked_path' => 'storage/app/processed/' . $fileId . '_processed.*',
+                        'available_files' => array_slice($allFiles, 0, 10), // Show first 10 files for debugging
+                    ], 404);
+                }
+            } else {
+                $processedFileName = $statusData['processed_file'];
+                $processedFilePath = storage_path('app/processed/' . $processedFileName);
+            }
+
+            if (!file_exists($processedFilePath)) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Processed file not found at expected path',
+                    'expected_path' => 'storage/app/processed/' . $processedFileName,
+                    'file_exists' => file_exists($processedFilePath),
+                ], 404);
+            }
+
+            // Determine download filename
+            $downloadName = 'processed_file.txt';
+            if (isset($statusData['original_name'])) {
+                $downloadName = 'processed_' . $statusData['original_name'];
+            } elseif (isset($statusData['original_file'])) {
+                $downloadName = 'processed_' . basename($statusData['original_file']);
+            }
+
+            return response()->download(
+                $processedFilePath,
+                $downloadName,
+                [
+                    'Content-Type' => 'application/octet-stream',
+                    'X-Processing-Type' => $statusData['processing_type'] ?? 'unknown',
+                    'X-File-Id' => $fileId,
+                ]
+            );
+
+        } catch (\Exception $e) {
+            \Log::error('Download error for file: ' . $fileId, [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
                 'status' => 'error',
-                'message' => 'Processed file not found',
-                'debug' => 'Looking for: ' . ($processedFileName ?? 'unknown'),
-            ], 404);
+                'message' => 'An error occurred during download',
+                'error' => $e->getMessage(),
+                'file_id' => $fileId,
+            ], 500);
         }
-
-        return response()->download(
-            $processedFilePath,
-            'processed_' . $statusData['original_name'] ?? 'processed_file.txt',
-            [
-                'Content-Type' => 'application/octet-stream',
-                'X-Processing-Type' => $statusData['processing_type'],
-                'X-File-Id' => $fileId,
-            ]
-        );
     }
 
     /**
