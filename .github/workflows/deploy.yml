@@ -122,15 +122,40 @@ jobs:
           # Install dependencies
           composer install --no-interaction --no-dev --prefer-dist --optimize-autoloader
 
+          # Install Redis if not already installed
+          if ! command -v redis-cli &> /dev/null; then
+            echo "Installing Redis..."
+            sudo apt-get update
+            sudo apt-get install -y redis-server php8.2-redis
+            sudo systemctl start redis-server
+            sudo systemctl enable redis-server
+
+            # Configure Redis for Laravel
+            sudo bash -c 'cat >> /etc/redis/redis.conf << EOF
+# Laravel Queue Optimizations
+maxmemory 256mb
+maxmemory-policy allkeys-lru
+tcp-keepalive 60
+EOF'
+            sudo systemctl restart redis-server
+          else
+            echo "Redis already installed"
+          fi
+
           # Setup environment file if it doesn't exist
           if [ ! -f .env ]; then
             cp .env.example .env
             sed -i 's/DB_DATABASE=.*/DB_DATABASE=laravel_db/' .env
             sed -i 's/DB_USERNAME=.*/DB_USERNAME=laravel_user/' .env
             sed -i 's/DB_PASSWORD=.*/DB_PASSWORD=${{ secrets.DB_PASSWORD }}/' .env
-            sed -i 's/QUEUE_CONNECTION=.*/QUEUE_CONNECTION=database/' .env
+            sed -i 's/QUEUE_CONNECTION=.*/QUEUE_CONNECTION=redis/' .env
+            sed -i 's/CACHE_DRIVER=.*/CACHE_DRIVER=redis/' .env
             php artisan key:generate
           fi
+
+          # Update existing .env to use Redis
+          sed -i 's/QUEUE_CONNECTION=database/QUEUE_CONNECTION=redis/' .env
+          sed -i 's/CACHE_DRIVER=file/CACHE_DRIVER=redis/' .env
 
           # Run migrations
           php artisan migrate --force
@@ -151,11 +176,11 @@ jobs:
           sudo chmod -R 777 /var/www/laravel-app/storage
           sudo chmod -R 777 /var/www/laravel-app/bootstrap/cache
 
-          # Update supervisor to run workers as www-data
+          # Update supervisor to run Redis workers
           sudo tee /etc/supervisor/conf.d/laravel-worker.conf > /dev/null <<EOF
           [program:laravel-worker]
           process_name=%(program_name)s_%(process_num)02d
-          command=php /var/www/laravel-app/artisan queue:work --sleep=3 --tries=3 --timeout=90
+          command=php /var/www/laravel-app/artisan queue:work redis --queue=high,default,low --sleep=3 --tries=3 --timeout=90
           autostart=true
           autorestart=true
           stopasgroup=true
@@ -164,6 +189,22 @@ jobs:
           numprocs=4
           redirect_stderr=true
           stdout_logfile=/var/www/laravel-app/storage/logs/worker.log
+          stopwaitsecs=3600
+          EOF
+
+          # Add high-priority worker for critical jobs
+          sudo tee /etc/supervisor/conf.d/laravel-high-priority.conf > /dev/null <<EOF
+          [program:laravel-high-priority]
+          process_name=%(program_name)s_%(process_num)02d
+          command=php /var/www/laravel-app/artisan queue:work redis --queue=high --sleep=1 --tries=2 --timeout=60
+          autostart=true
+          autorestart=true
+          stopasgroup=true
+          killasgroup=true
+          user=www-data
+          numprocs=2
+          redirect_stderr=true
+          stdout_logfile=/var/www/laravel-app/storage/logs/high-priority.log
           stopwaitsecs=3600
           EOF
 

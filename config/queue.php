@@ -64,10 +64,28 @@ return [
 
         'redis' => [
             'driver' => 'redis',
-            'connection' => 'default',
+            'connection' => 'queue',
             'queue' => env('REDIS_QUEUE', 'default'),
             'retry_after' => 90,
-            'block_for' => null,
+            'block_for' => 5,
+            'after_commit' => false,
+        ],
+
+        'redis-high' => [
+            'driver' => 'redis',
+            'connection' => 'queue',
+            'queue' => 'high',
+            'retry_after' => 60,
+            'block_for' => 5,
+            'after_commit' => false,
+        ],
+
+        'redis-low' => [
+            'driver' => 'redis',
+            'connection' => 'queue',
+            'queue' => 'low',
+            'retry_after' => 120,
+            'block_for' => 5,
             'after_commit' => false,
         ],
 
