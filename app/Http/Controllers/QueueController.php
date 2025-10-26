@@ -322,12 +322,34 @@ class QueueController extends Controller
             ], 400);
         }
 
-        $processedFilePath = storage_path('app/processed/' . $statusData['processed_file']);
+        // Check if processed_file field exists
+        if (!isset($statusData['processed_file'])) {
+            // Try to find the processed file using the file_id
+            $processedFileName = $fileId . '_processed.txt';
+            $processedFilePath = storage_path('app/processed/' . $processedFileName);
+
+            // Check for other extensions if .txt doesn't exist
+            if (!file_exists($processedFilePath)) {
+                $extensions = ['txt', 'json', 'csv', 'log'];
+                foreach ($extensions as $ext) {
+                    $testPath = storage_path('app/processed/' . $fileId . '_processed.' . $ext);
+                    if (file_exists($testPath)) {
+                        $processedFilePath = $testPath;
+                        $processedFileName = $fileId . '_processed.' . $ext;
+                        break;
+                    }
+                }
+            }
+        } else {
+            $processedFileName = $statusData['processed_file'];
+            $processedFilePath = storage_path('app/processed/' . $processedFileName);
+        }
 
         if (!file_exists($processedFilePath)) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Processed file not found',
+                'debug' => 'Looking for: ' . ($processedFileName ?? 'unknown'),
             ], 404);
         }
 

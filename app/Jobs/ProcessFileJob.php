@@ -293,9 +293,25 @@ class ProcessFileJob implements ShouldQueue
     private function storeProcessedFile(string $processedFileName): void
     {
         $statusPath = 'processing_status/' . $this->fileId . '.json';
-        $data = json_decode(Storage::get($statusPath), true);
+
+        // Check if status file exists
+        if (Storage::exists($statusPath)) {
+            $data = json_decode(Storage::get($statusPath), true);
+        } else {
+            // If file doesn't exist, create basic structure
+            $data = [
+                'file_id' => $this->fileId,
+                'user_id' => $this->userId,
+                'status' => 'completed',
+                'processing_type' => $this->processingType,
+                'original_file' => $this->filePath,
+            ];
+        }
+
         $data['processed_file'] = $processedFileName;
         $data['completed_at'] = now()->toDateTimeString();
+        $data['download_ready'] = true;
+
         Storage::put($statusPath, json_encode($data, JSON_PRETTY_PRINT));
     }
 }
