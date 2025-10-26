@@ -242,14 +242,9 @@ class QueueController extends Controller
                 'download_ready' => false,
             ];
 
-            $statusFile = storage_path('app/processing_status/' . $fileId . '.json');
-            $statusDir = dirname($statusFile);
-
-            if (!file_exists($statusDir)) {
-                mkdir($statusDir, 0755, true);
-            }
-
-            file_put_contents($statusFile, json_encode($statusData, JSON_PRETTY_PRINT));
+            // Use Storage facade for better permission handling
+            $statusPath = 'processing_status/' . $fileId . '.json';
+            Storage::put($statusPath, json_encode($statusData, JSON_PRETTY_PRINT));
 
             // Dispatch file processing job to queue
             ProcessFileJob::dispatch($fileId, $fileName, $processingType, $userId);
@@ -283,16 +278,16 @@ class QueueController extends Controller
      */
     public function fileStatus(string $fileId): JsonResponse
     {
-        $statusFile = storage_path('app/processing_status/' . $fileId . '.json');
+        $statusPath = 'processing_status/' . $fileId . '.json';
 
-        if (!file_exists($statusFile)) {
+        if (!Storage::exists($statusPath)) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'File not found',
             ], 404);
         }
 
-        $statusData = json_decode(file_get_contents($statusFile), true);
+        $statusData = json_decode(Storage::get($statusPath), true);
 
         return response()->json([
             'status' => 'success',
@@ -308,16 +303,16 @@ class QueueController extends Controller
      */
     public function downloadProcessed(string $fileId)
     {
-        $statusFile = storage_path('app/processing_status/' . $fileId . '.json');
+        $statusPath = 'processing_status/' . $fileId . '.json';
 
-        if (!file_exists($statusFile)) {
+        if (!Storage::exists($statusPath)) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'File not found',
             ], 404);
         }
 
-        $statusData = json_decode(file_get_contents($statusFile), true);
+        $statusData = json_decode(Storage::get($statusPath), true);
 
         if ($statusData['status'] !== 'completed') {
             return response()->json([
@@ -358,7 +353,6 @@ class QueueController extends Controller
         $failedJobs = \DB::table('failed_jobs')->count();
 
         // Count processing status files
-        $statusDir = storage_path('app/processing_status');
         $processingStats = [
             'queued' => 0,
             'processing' => 0,
@@ -366,13 +360,11 @@ class QueueController extends Controller
             'failed' => 0,
         ];
 
-        if (is_dir($statusDir)) {
-            $statusFiles = glob($statusDir . '/*.json');
-            foreach ($statusFiles as $file) {
-                $data = json_decode(file_get_contents($file), true);
-                if (isset($data['status'])) {
-                    $processingStats[$data['status']] = ($processingStats[$data['status']] ?? 0) + 1;
-                }
+        $statusFiles = Storage::files('processing_status');
+        foreach ($statusFiles as $file) {
+            $data = json_decode(Storage::get($file), true);
+            if (isset($data['status'])) {
+                $processingStats[$data['status']] = ($processingStats[$data['status']] ?? 0) + 1;
             }
         }
 
