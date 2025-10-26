@@ -185,14 +185,25 @@
                     </div>
                 </div>
 
-                <a href="{{ route('queue.download', $fileId) }}?direct=1"
+                <a href="{{ url('/api/queue/download/' . $fileId) }}?direct=1"
                    class="download-button"
-                   id="downloadBtn">
+                   id="downloadBtn"
+                   download>
                     Download File
                 </a>
 
                 <div class="success-message" id="downloadMessage" style="display: none;">
                     Download started! Check your downloads folder.
+                </div>
+
+                <div style="margin-top: 20px; font-size: 14px; color: #666;">
+                    <p id="autoDownloadStatus" style="display: none;">
+                        Auto-download will start in <span id="countdown">2</span> seconds...
+                    </p>
+                    <p style="margin-top: 10px;">
+                        If download doesn't start automatically,<br>
+                        please click the Download button above.
+                    </p>
                 </div>
             @elseif($status === 'processing')
                 <p class="status">File is still being processed...</p>
@@ -237,36 +248,66 @@
 
     @if(!$error && $status === 'completed')
     <script>
-        // Auto-download after page load
-        window.addEventListener('load', function() {
-            setTimeout(function() {
-                // Check if this is not a direct download request
-                const urlParams = new URLSearchParams(window.location.search);
-                if (!urlParams.get('direct')) {
-                    // Trigger download
-                    const downloadBtn = document.getElementById('downloadBtn');
-                    if (downloadBtn) {
-                        // Create a temporary iframe for download
-                        const iframe = document.createElement('iframe');
-                        iframe.style.display = 'none';
-                        iframe.src = downloadBtn.href;
-                        document.body.appendChild(iframe);
+        document.addEventListener('DOMContentLoaded', function() {
+            const downloadBtn = document.getElementById('downloadBtn');
+            const downloadMessage = document.getElementById('downloadMessage');
+            const autoDownloadStatus = document.getElementById('autoDownloadStatus');
+            const countdownElement = document.getElementById('countdown');
 
-                        // Show success message
-                        document.getElementById('downloadMessage').style.display = 'block';
+            // Check if we should auto-download
+            const urlParams = new URLSearchParams(window.location.search);
+            const shouldAutoDownload = !urlParams.get('direct') && !urlParams.get('noauto');
 
-                        // Remove iframe after download starts
-                        setTimeout(function() {
-                            document.body.removeChild(iframe);
-                        }, 5000);
-                    }
+            // Function to trigger download
+            function triggerDownload() {
+                if (!downloadBtn) return;
+
+                console.log('Triggering download...');
+
+                // Method 1: Direct window.location
+                window.location.href = downloadBtn.href;
+
+                // Show success message
+                if (downloadMessage) {
+                    downloadMessage.style.display = 'block';
                 }
-            }, 1500); // Wait 1.5 seconds before auto-download
-        });
 
-        // Handle manual download click
-        document.getElementById('downloadBtn').addEventListener('click', function(e) {
-            document.getElementById('downloadMessage').style.display = 'block';
+                // Hide countdown
+                if (autoDownloadStatus) {
+                    autoDownloadStatus.style.display = 'none';
+                }
+            }
+
+            // Auto-download with countdown
+            if (shouldAutoDownload) {
+                if (autoDownloadStatus) {
+                    autoDownloadStatus.style.display = 'block';
+                }
+
+                let countdown = 2;
+                const countdownInterval = setInterval(function() {
+                    countdown--;
+                    if (countdownElement) {
+                        countdownElement.textContent = countdown;
+                    }
+
+                    if (countdown <= 0) {
+                        clearInterval(countdownInterval);
+                        triggerDownload();
+                    }
+                }, 1000);
+            }
+
+            // Handle manual download click
+            if (downloadBtn) {
+                downloadBtn.addEventListener('click', function(e) {
+                    console.log('Manual download clicked');
+                    if (downloadMessage) {
+                        downloadMessage.style.display = 'block';
+                    }
+                    // Don't prevent default - let the link work normally
+                });
+            }
         });
     </script>
     @endif
