@@ -131,12 +131,10 @@ jobs:
             sudo systemctl enable redis-server
 
             # Configure Redis for Laravel
-            sudo bash -c 'cat >> /etc/redis/redis.conf << EOF
-# Laravel Queue Optimizations
-maxmemory 256mb
-maxmemory-policy allkeys-lru
-tcp-keepalive 60
-EOF'
+            sudo bash -c 'echo "# Laravel Queue Optimizations" >> /etc/redis/redis.conf'
+            sudo bash -c 'echo "maxmemory 256mb" >> /etc/redis/redis.conf'
+            sudo bash -c 'echo "maxmemory-policy allkeys-lru" >> /etc/redis/redis.conf'
+            sudo bash -c 'echo "tcp-keepalive 60" >> /etc/redis/redis.conf'
             sudo systemctl restart redis-server
           else
             echo "Redis already installed"
@@ -177,7 +175,7 @@ EOF'
           sudo chmod -R 777 /var/www/laravel-app/bootstrap/cache
 
           # Update supervisor to run Redis workers
-          sudo tee /etc/supervisor/conf.d/laravel-worker.conf > /dev/null <<EOF
+          sudo tee /etc/supervisor/conf.d/laravel-worker.conf > /dev/null <<'WORKER_EOF'
           [program:laravel-worker]
           process_name=%(program_name)s_%(process_num)02d
           command=php /var/www/laravel-app/artisan queue:work redis --queue=high,default,low --sleep=3 --tries=3 --timeout=90
@@ -190,10 +188,10 @@ EOF'
           redirect_stderr=true
           stdout_logfile=/var/www/laravel-app/storage/logs/worker.log
           stopwaitsecs=3600
-          EOF
+          WORKER_EOF
 
           # Add high-priority worker for critical jobs
-          sudo tee /etc/supervisor/conf.d/laravel-high-priority.conf > /dev/null <<EOF
+          sudo tee /etc/supervisor/conf.d/laravel-high-priority.conf > /dev/null <<'PRIORITY_EOF'
           [program:laravel-high-priority]
           process_name=%(program_name)s_%(process_num)02d
           command=php /var/www/laravel-app/artisan queue:work redis --queue=high --sleep=1 --tries=2 --timeout=60
@@ -206,7 +204,7 @@ EOF'
           redirect_stderr=true
           stdout_logfile=/var/www/laravel-app/storage/logs/high-priority.log
           stopwaitsecs=3600
-          EOF
+          PRIORITY_EOF
 
           sudo supervisorctl reread
           sudo supervisorctl update
