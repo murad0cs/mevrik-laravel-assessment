@@ -4,9 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Jobs\ProcessNotification;
 use App\Jobs\WriteLogJob;
+use App\Jobs\ProcessFileJob;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class QueueController extends Controller
 {
@@ -186,5 +190,217 @@ class QueueController extends Controller
                 'jobs' => $dispatched,
             ],
         ], 201);
+    }
+
+    /**
+     * Upload a file for queue processing
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function uploadFile(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'file' => 'required|file|max:10240', // Max 10MB
+            'processing_type' => 'required|string|in:text_transform,csv_analyze,image_resize,json_format,metadata',
+            'user_id' => 'nullable|integer',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        try {
+            // Generate unique file ID
+            $fileId = Str::uuid()->toString();
+
+            // Get uploaded file
+            $uploadedFile = $request->file('file');
+            $originalName = $uploadedFile->getClientOriginalName();
+            $extension = $uploadedFile->getClientOriginalExtension();
+
+            // Store file in uploads directory
+            $fileName = $fileId . '.' . $extension;
+            $uploadedFile->storeAs('uploads', $fileName);
+
+            // Get processing type and user ID
+            $processingType = $request->input('processing_type');
+            $userId = $request->input('user_id', 1);
+
+            // Create initial status file
+            $statusData = [
+                'file_id' => $fileId,
+                'user_id' => $userId,
+                'status' => 'queued',
+                'original_name' => $originalName,
+                'processing_type' => $processingType,
+                'uploaded_at' => now()->toDateTimeString(),
+                'download_ready' => false,
+            ];
+
+            $statusFile = storage_path('app/processing_status/' . $fileId . '.json');
+            $statusDir = dirname($statusFile);
+
+            if (!file_exists($statusDir)) {
+                mkdir($statusDir, 0755, true);
+            }
+
+            file_put_contents($statusFile, json_encode($statusData, JSON_PRETTY_PRINT));
+
+            // Dispatch file processing job to queue
+            ProcessFileJob::dispatch($fileId, $fileName, $processingType, $userId);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'File uploaded and queued for processing',
+                'data' => [
+                    'file_id' => $fileId,
+                    'original_name' => $originalName,
+                    'processing_type' => $processingType,
+                    'status_url' => url('/api/queue/file-status/' . $fileId),
+                    'download_url' => url('/api/queue/download/' . $fileId),
+                ],
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'File upload failed',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Check file processing status
+     *
+     * @param string $fileId
+     * @return JsonResponse
+     */
+    public function fileStatus(string $fileId): JsonResponse
+    {
+        $statusFile = storage_path('app/processing_status/' . $fileId . '.json');
+
+        if (!file_exists($statusFile)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'File not found',
+            ], 404);
+        }
+
+        $statusData = json_decode(file_get_contents($statusFile), true);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $statusData,
+        ]);
+    }
+
+    /**
+     * Download processed file
+     *
+     * @param string $fileId
+     * @return BinaryFileResponse|JsonResponse
+     */
+    public function downloadProcessed(string $fileId)
+    {
+        $statusFile = storage_path('app/processing_status/' . $fileId . '.json');
+
+        if (!file_exists($statusFile)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'File not found',
+            ], 404);
+        }
+
+        $statusData = json_decode(file_get_contents($statusFile), true);
+
+        if ($statusData['status'] !== 'completed') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'File processing not completed',
+                'current_status' => $statusData['status'],
+            ], 400);
+        }
+
+        $processedFilePath = storage_path('app/processed/' . $statusData['processed_file']);
+
+        if (!file_exists($processedFilePath)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Processed file not found',
+            ], 404);
+        }
+
+        return response()->download(
+            $processedFilePath,
+            'processed_' . $statusData['original_name'] ?? 'processed_file.txt',
+            [
+                'Content-Type' => 'application/octet-stream',
+                'X-Processing-Type' => $statusData['processing_type'],
+                'X-File-Id' => $fileId,
+            ]
+        );
+    }
+
+    /**
+     * Get queue statistics including file processing jobs
+     *
+     * @return JsonResponse
+     */
+    public function queueStatus(): JsonResponse
+    {
+        $pendingJobs = \DB::table('jobs')->count();
+        $failedJobs = \DB::table('failed_jobs')->count();
+
+        // Count processing status files
+        $statusDir = storage_path('app/processing_status');
+        $processingStats = [
+            'queued' => 0,
+            'processing' => 0,
+            'completed' => 0,
+            'failed' => 0,
+        ];
+
+        if (is_dir($statusDir)) {
+            $statusFiles = glob($statusDir . '/*.json');
+            foreach ($statusFiles as $file) {
+                $data = json_decode(file_get_contents($file), true);
+                if (isset($data['status'])) {
+                    $processingStats[$data['status']] = ($processingStats[$data['status']] ?? 0) + 1;
+                }
+            }
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'queue_stats' => [
+                'pending_jobs' => $pendingJobs,
+                'failed_jobs' => $failedJobs,
+                'workers_active' => 4, // Your supervisor config has 4 workers
+            ],
+            'file_processing_stats' => $processingStats,
+            'endpoints' => [
+                'upload_file' => [
+                    'method' => 'POST',
+                    'url' => '/api/queue/upload-file',
+                    'description' => 'Upload a file for queue processing',
+                ],
+                'file_status' => [
+                    'method' => 'GET',
+                    'url' => '/api/queue/file-status/{fileId}',
+                    'description' => 'Check file processing status',
+                ],
+                'download' => [
+                    'method' => 'GET',
+                    'url' => '/api/queue/download/{fileId}',
+                    'description' => 'Download processed file',
+                ],
+            ],
+        ]);
     }
 }

@@ -1,0 +1,14 @@
+{
+  "project": "Mevrik Laravel Assessment",
+  "features": ["Queue System", "File Processing", "API Endpoints"],
+  "metadata": {
+    "version": "1.0.0",
+    "author": "Developer",
+    "date": "2025-10-26"
+  },
+  "queue_jobs": [
+    {"name": "ProcessNotification", "type": "notification"},
+    {"name": "WriteLogJob", "type": "logging"},
+    {"name": "ProcessFileJob", "type": "file_processing"}
+  ]
+}

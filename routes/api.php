@@ -18,6 +18,7 @@ use App\Http\Controllers\QueueController;
 Route::prefix('queue')->group(function () {
     // Queue status and information
     Route::get('/', [QueueController::class, 'index']);
+    Route::get('/status', [QueueController::class, 'queueStatus']);
 
     // Dispatch notification job
     Route::post('/dispatch-notification', [QueueController::class, 'dispatchNotification']);
@@ -27,6 +28,11 @@ Route::prefix('queue')->group(function () {
 
     // Dispatch bulk jobs
     Route::post('/dispatch-bulk', [QueueController::class, 'dispatchBulk']);
+
+    // File processing endpoints
+    Route::post('/upload-file', [QueueController::class, 'uploadFile']);
+    Route::get('/file-status/{fileId}', [QueueController::class, 'fileStatus']);
+    Route::get('/download/{fileId}', [QueueController::class, 'downloadProcessed']);
 });
 
 // Health check endpoint
