@@ -113,10 +113,11 @@ class CustomRateLimiter
      */
     protected function addHeaders(Response $response, int $maxAttempts, int $remainingAttempts): Response
     {
-        return $response->withHeaders([
-            'X-RateLimit-Limit' => $maxAttempts,
-            'X-RateLimit-Remaining' => $remainingAttempts,
-        ]);
+        // Use headers->set() which works for all response types including BinaryFileResponse
+        $response->headers->set('X-RateLimit-Limit', $maxAttempts);
+        $response->headers->set('X-RateLimit-Remaining', $remainingAttempts);
+
+        return $response;
     }
 
     /**
