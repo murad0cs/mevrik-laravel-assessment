@@ -471,8 +471,11 @@ class QueueController extends Controller
                     'Content-Type' => 'application/octet-stream',
                     'X-Processing-Type' => $statusData['processing_type'] ?? 'unknown',
                     'X-File-Id' => $fileId,
+                    'Cache-Control' => 'no-cache, no-store, must-revalidate',
+                    'Pragma' => 'no-cache',
+                    'Expires' => '0',
                 ]
-            );
+            )->deleteFileAfterSend(false); // Don't delete the processed file
 
         } catch (\Exception $e) {
             Log::error('Download error for file: ' . $fileId, [
