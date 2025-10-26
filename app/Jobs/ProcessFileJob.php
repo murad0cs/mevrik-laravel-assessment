@@ -269,15 +269,27 @@ class ProcessFileJob implements ShouldQueue
     {
         $statusPath = 'processing_status/' . $this->fileId . '.json';
 
-        $statusData = [
-            'file_id' => $this->fileId,
-            'user_id' => $this->userId,
-            'status' => $status,
-            'processing_type' => $this->processingType,
-            'original_file' => $this->filePath,
-            'updated_at' => now()->toDateTimeString(),
-            'error' => $error
-        ];
+        // First, read existing status data if it exists
+        if (Storage::exists($statusPath)) {
+            $statusData = json_decode(Storage::get($statusPath), true);
+        } else {
+            $statusData = [];
+        }
+
+        // Update with new values (preserving existing fields like processed_file and original_name)
+        $statusData['file_id'] = $this->fileId;
+        $statusData['user_id'] = $this->userId;
+        $statusData['status'] = $status;
+        $statusData['processing_type'] = $this->processingType;
+        $statusData['original_file'] = $this->filePath;
+        $statusData['updated_at'] = now()->toDateTimeString();
+        $statusData['error'] = $error;
+
+        // Preserve original_name if it exists
+        if (!isset($statusData['original_name']) && $this->filePath) {
+            // Extract original name from the file path if not already set
+            $statusData['original_name'] = basename($this->filePath);
+        }
 
         if ($status === 'completed') {
             $statusData['download_ready'] = true;
