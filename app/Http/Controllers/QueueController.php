@@ -332,8 +332,11 @@ class QueueController extends Controller
 
             $statusData = json_decode(Storage::get($statusPath), true);
 
-            // If browser request and not a direct download, show the download page
-            if ($request->acceptsHtml() && !$request->expectsJson() && !$request->has('direct')) {
+            // Check if this is a direct download request (bypass template)
+            $isDirectDownload = $request->has('direct') || $request->input('download') === 'true';
+
+            // If browser request and NOT a direct download, show the download page
+            if ($request->acceptsHtml() && !$request->expectsJson() && !$isDirectDownload) {
                 // Show the download page template
                 return view('download', [
                     'fileId' => $fileId,
