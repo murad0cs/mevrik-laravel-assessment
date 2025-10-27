@@ -24,14 +24,23 @@ class FileDownloadController extends Controller
             // Get file status from service layer
             $statusInfo = $this->fileService->getStatus($fileId);
 
+            \Log::info('Download request', [
+                'file_id' => $fileId,
+                'status_info' => $statusInfo
+            ]);
+
             if (!$statusInfo['success']) {
+                \Log::warning('File status not found', ['file_id' => $fileId]);
+
                 // Check if request is from browser
                 if ($request->acceptsHtml() && !$request->has('direct')) {
                     return view('download', [
-                        'error' => true,
-                        'message' => 'File not found or processing not completed',
+                        'error' => 'File not found. The file may have expired or the ID is incorrect.',
                         'fileId' => $fileId,
-                        'status' => 'error'
+                        'status' => 'not_found',
+                        'originalName' => null,
+                        'processingType' => null,
+                        'processedAt' => null
                     ]);
                 }
 
@@ -48,9 +57,9 @@ class FileDownloadController extends Controller
                         'error' => false,
                         'fileId' => $fileId,
                         'status' => $statusInfo['status'],
-                        'originalName' => $statusInfo['original_name'],
-                        'processingType' => $statusInfo['processing_type'],
-                        'message' => 'File is still being processed. Current status: ' . $statusInfo['status']
+                        'originalName' => $statusInfo['original_name'] ?? 'Unknown',
+                        'processingType' => $statusInfo['processing_type'] ?? 'unknown',
+                        'processedAt' => null
                     ]);
                 }
 
@@ -65,12 +74,19 @@ class FileDownloadController extends Controller
             $processedFile = $this->fileService->getProcessedFile($fileId);
 
             if (!$processedFile) {
+                \Log::error('Processed file not found', [
+                    'file_id' => $fileId,
+                    'status_info' => $statusInfo
+                ]);
+
                 if ($request->acceptsHtml() && !$request->has('direct')) {
                     return view('download', [
-                        'error' => true,
-                        'message' => 'Processed file not found on disk',
+                        'error' => 'Processed file not found on disk. The file may have been deleted or processing failed.',
                         'fileId' => $fileId,
-                        'status' => 'error'
+                        'status' => 'error',
+                        'originalName' => $statusInfo['original_name'] ?? 'Unknown',
+                        'processingType' => $statusInfo['processing_type'] ?? 'unknown',
+                        'processedAt' => null
                     ]);
                 }
 
@@ -80,17 +96,23 @@ class FileDownloadController extends Controller
                 ], 404);
             }
 
+            \Log::info('Processed file found', [
+                'file_id' => $fileId,
+                'file_path' => $processedFile['path'],
+                'file_name' => $processedFile['name']
+            ]);
+
             // For browser requests, show download page
             if ($request->acceptsHtml() && !$request->has('direct')) {
                 return view('download', [
                     'error' => false,
                     'fileId' => $fileId,
                     'fileName' => $processedFile['name'],
-                    'originalName' => $statusInfo['original_name'],
-                    'fileSize' => filesize($processedFile['path']),
+                    'originalName' => $statusInfo['original_name'] ?? 'processed_file',
+                    'fileSize' => null, // Skip filesize check as it's remote server
                     'status' => 'completed',
-                    'processingType' => $statusInfo['processing_type'],
-                    'completedAt' => $statusInfo['completed_at'],
+                    'processingType' => $statusInfo['processing_type'] ?? 'unknown',
+                    'processedAt' => $statusInfo['completed_at'] ?? 'Recently',
                     'downloadUrl' => route('queue.download', ['fileId' => $fileId, 'direct' => 1])
                 ]);
             }
