@@ -16,6 +16,16 @@ interface FileStorageInterface
     public function store(UploadedFile $file, string $directory = 'uploads'): string;
 
     /**
+     * Store an uploaded file with a specific name
+     *
+     * @param UploadedFile $file
+     * @param string $directory
+     * @param string $filename
+     * @return string The stored file path
+     */
+    public function storeAs(UploadedFile $file, string $directory, string $filename): string;
+
+    /**
      * Get a file's content
      *
      * @param string $path

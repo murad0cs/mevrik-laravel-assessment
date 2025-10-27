@@ -71,9 +71,15 @@ class FileProcessingService
     public function uploadAndQueue(FileUploadDTO $uploadDto): FileStatusDTO
     {
         try {
-            // Store the uploaded file
+            // Store the uploaded file with specific filename
             $fileName = $uploadDto->fileId . '.' . $uploadDto->getExtension();
-            $storedPath = $this->storage->store($uploadDto->file, 'uploads');
+            $storedPath = $this->storage->storeAs($uploadDto->file, 'uploads', $fileName);
+
+            Log::info('File stored', [
+                'file_id' => $uploadDto->fileId,
+                'stored_path' => $storedPath,
+                'filename' => $fileName
+            ]);
 
             // Create initial status
             $status = new FileStatusDTO(
@@ -200,9 +206,9 @@ class FileProcessingService
             'file_id' => $status->fileId,
             'original_name' => $status->originalName,
             'processing_type' => $status->processingType,
-            'progress' => $status->progress ?? 0,
+            'progress' => 0,
             'created_at' => $status->uploadedAt?->toDateTimeString(),
-            'started_at' => $status->startedAt?->toDateTimeString(),
+            'started_at' => null,
             'completed_at' => $status->completedAt?->toDateTimeString(),
             'error_message' => $status->error ?? null,
             'metadata' => $status->metadata ?? []
