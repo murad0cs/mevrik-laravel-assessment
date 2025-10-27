@@ -17,6 +17,14 @@ class FileStorageRepository implements FileStorageInterface
     }
 
     /**
+     * Store an uploaded file with a specific name
+     */
+    public function storeAs(UploadedFile $file, string $directory, string $filename): string
+    {
+        return $file->storeAs($directory, $filename);
+    }
+
+    /**
      * Get a file's content
      */
     public function get(string $path): ?string
