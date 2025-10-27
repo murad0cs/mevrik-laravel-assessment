@@ -92,6 +92,15 @@ class ProcessNotificationTest extends TestCase
         ];
 
         $job = new ProcessNotification($data);
-        // Note: This test would need actual job execution in a real environment
+
+        // Set up a mock job instance for the handle method
+        $mockJob = \Mockery::mock();
+        $mockJob->shouldReceive('getJobId')->andReturn('test-job-id');
+
+        // Set the job property
+        $job->job = $mockJob;
+
+        // Execute the job
+        $job->handle();
     }
 }

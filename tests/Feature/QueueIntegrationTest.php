@@ -41,7 +41,8 @@ class QueueIntegrationTest extends TestCase
         $fileId = $uploadResponse->json('file_id');
 
         // 2. Process the job synchronously for testing
-        $job = new ProcessFileJob($fileId, 'text_transform', 123);
+        // ProcessFileJob constructor: (fileId, filePath, processingType, userId)
+        $job = new ProcessFileJob($fileId, 'test.txt', 'text_transform', 123);
         $job->handle();
 
         // 3. Check status
@@ -72,7 +73,13 @@ class QueueIntegrationTest extends TestCase
             $response->assertStatus(200);
 
             // Process the job synchronously
-            $job = new ProcessNotification(123, $type, "Test {$type} notification", ['test' => true]);
+            // ProcessNotification constructor expects array of notification data
+            $job = new ProcessNotification([
+                'user_id' => 123,
+                'type' => $type,
+                'message' => "Test {$type} notification",
+                'metadata' => ['test' => true]
+            ]);
             $job->handle();
 
             // Check that notification was logged
@@ -96,7 +103,12 @@ class QueueIntegrationTest extends TestCase
             $response->assertStatus(200);
 
             // Process the job synchronously
-            $job = new WriteLogJob("Test {$level} message", $level, ['test' => true]);
+            // WriteLogJob constructor: (logData array, level string)
+            $job = new WriteLogJob([
+                'message' => "Test {$level} message",
+                'context' => ['test' => true],
+                'source' => 'test'
+            ], $level);
             $job->handle();
 
             // Check that log was created
@@ -193,7 +205,8 @@ class QueueIntegrationTest extends TestCase
         $fileId = $response->json('file_id');
 
         // Process the job
-        $job = new ProcessFileJob($fileId, 'json_format', 123);
+        // ProcessFileJob constructor: (fileId, filePath, processingType, userId)
+        $job = new ProcessFileJob($fileId, 'test.json', 'json_format', 123);
 
         try {
             $job->handle();

@@ -92,8 +92,10 @@ class ProcessNotification implements ShouldQueue
         $message = $this->notificationData['message'] ?? 'No message provided';
         $metadata = $this->notificationData['metadata'] ?? [];
 
-        // Simulate processing time (remove in production)
-        sleep(2);
+        // Simulate processing time only in development/testing
+        if (app()->environment('testing', 'local')) {
+            sleep(2);
+        }
 
         // Here you would typically:
         // - Send email notification
