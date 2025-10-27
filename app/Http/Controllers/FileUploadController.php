@@ -8,6 +8,7 @@ use App\Http\Requests\UploadFileRequest;
 use App\Services\FileProcessingService;
 use App\Repositories\FileProcessingStatusRepository;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 

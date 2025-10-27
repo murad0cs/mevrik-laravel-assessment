@@ -23,6 +23,45 @@ class FileProcessingService
     ) {}
 
     /**
+     * Process file upload (wrapper for controllers)
+     */
+    public function processUpload($file, string $processingType, ?int $userId = null, array $metadata = []): array
+    {
+        try {
+            $fileId = Str::uuid()->toString();
+
+            $uploadDto = new FileUploadDTO(
+                file: $file,
+                fileId: $fileId,
+                userId: $userId,
+                processingType: $processingType,
+                metadata: $metadata
+            );
+
+            $status = $this->uploadAndQueue($uploadDto);
+
+            return [
+                'success' => true,
+                'message' => 'File uploaded and queued for processing',
+                'file_id' => $status->fileId,
+                'status' => $status->status,
+                'processing_type' => $status->processingType
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('File upload failed', [
+                'error' => $e->getMessage()
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'File upload failed',
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
      * Handle file upload and queue processing
      */
     public function uploadAndQueue(FileUploadDTO $uploadDto): FileStatusDTO
@@ -140,37 +179,58 @@ class FileProcessingService
     /**
      * Get file status
      */
-    public function getStatus(string $fileId): ?FileStatusDTO
+    public function getStatus(string $fileId): array
     {
-        return $this->statusRepository->find($fileId);
+        $status = $this->statusRepository->find($fileId);
+
+        if (!$status) {
+            return [
+                'success' => false,
+                'message' => 'File not found'
+            ];
+        }
+
+        return [
+            'success' => true,
+            'status' => $status->status,
+            'file_id' => $status->fileId,
+            'original_name' => $status->originalName,
+            'processing_type' => $status->processingType,
+            'progress' => $status->progress ?? 0,
+            'created_at' => $status->uploadedAt?->toDateTimeString(),
+            'started_at' => $status->startedAt?->toDateTimeString(),
+            'completed_at' => $status->completedAt?->toDateTimeString(),
+            'error_message' => $status->error ?? null,
+            'metadata' => $status->metadata ?? []
+        ];
     }
 
     /**
      * Download processed file
      */
-    public function getProcessedFile(string $fileId): array
+    public function getProcessedFile(string $fileId): ?array
     {
         $status = $this->statusRepository->find($fileId);
 
         if (!$status) {
-            throw new \Exception("File not found: {$fileId}");
+            return null;
         }
 
-        if (!$status->isCompleted()) {
-            throw new \Exception("File processing not completed. Status: {$status->status}");
+        if ($status->status !== 'completed') {
+            return null;
         }
 
         // Try to find the processed file
         $processedFilePath = $this->findProcessedFile($status);
 
         if (!$processedFilePath) {
-            throw new \Exception("Processed file not found for: {$fileId}");
+            return null;
         }
 
         return [
             'path' => $processedFilePath,
             'name' => 'processed_' . ($status->originalName ?? $status->originalFile),
-            'mime' => 'application/octet-stream'
+            'mime_type' => 'application/octet-stream'
         ];
     }
 
@@ -190,6 +250,116 @@ class FileProcessingService
             'queue' => $queueStats,
             'files' => $fileStats
         ];
+    }
+
+    /**
+     * Get user processing history
+     */
+    public function getUserHistory(int $userId, int $limit = 50): array
+    {
+        return $this->statusRepository->getUserHistory($userId, $limit);
+    }
+
+    /**
+     * Retry failed processing
+     */
+    public function retryProcessing(string $fileId): array
+    {
+        try {
+            $status = $this->statusRepository->find($fileId);
+
+            if (!$status) {
+                return [
+                    'success' => false,
+                    'message' => 'File not found'
+                ];
+            }
+
+            if ($status->status !== 'failed') {
+                return [
+                    'success' => false,
+                    'message' => 'Can only retry failed processing'
+                ];
+            }
+
+            // Reset status to queued
+            $this->statusRepository->updateStatus($fileId, 'queued');
+
+            // Re-dispatch the job
+            ProcessFileJob::dispatch(
+                $fileId,
+                $status->originalFile,
+                $status->processingType,
+                $status->userId
+            );
+
+            Log::info('Processing retry queued', ['file_id' => $fileId]);
+
+            return [
+                'success' => true,
+                'message' => 'Processing retry queued',
+                'file_id' => $fileId
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Retry processing failed', [
+                'file_id' => $fileId,
+                'error' => $e->getMessage()
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'Retry failed',
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Cancel processing
+     */
+    public function cancelProcessing(string $fileId): array
+    {
+        try {
+            $status = $this->statusRepository->find($fileId);
+
+            if (!$status) {
+                return [
+                    'success' => false,
+                    'message' => 'File not found'
+                ];
+            }
+
+            if ($status->status === 'completed') {
+                return [
+                    'success' => false,
+                    'message' => 'Cannot cancel completed processing'
+                ];
+            }
+
+            // Update status to cancelled
+            $this->statusRepository->updateStatus($fileId, 'cancelled');
+
+            Log::info('Processing cancelled', ['file_id' => $fileId]);
+
+            return [
+                'success' => true,
+                'message' => 'Processing cancelled',
+                'file_id' => $fileId
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Cancel processing failed', [
+                'file_id' => $fileId,
+                'error' => $e->getMessage()
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'Cancel failed',
+                'error' => $e->getMessage()
+            ];
+        }
     }
 
     /**
