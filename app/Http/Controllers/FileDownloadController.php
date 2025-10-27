@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Services\FileProcessingService;
-use App\Models\FileProcessingStatus;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -22,9 +21,10 @@ class FileDownloadController extends Controller
     public function download(Request $request, string $fileId)
     {
         try {
-            $processedFile = $this->fileService->getProcessedFile($fileId);
+            // Get file status from service layer
+            $statusInfo = $this->fileService->getStatus($fileId);
 
-            if (!$processedFile) {
+            if (!$statusInfo['success']) {
                 // Check if request is from browser
                 if ($request->acceptsHtml() && !$request->has('direct')) {
                     return view('download', [
@@ -36,24 +36,61 @@ class FileDownloadController extends Controller
                 }
 
                 return response()->json([
-                    'success' => false,
+                    'status' => 'error',
                     'message' => 'File not found or processing not completed'
+                ], 404);
+            }
+
+            // Check if processing is completed
+            if ($statusInfo['status'] !== 'completed') {
+                if ($request->acceptsHtml() && !$request->has('direct')) {
+                    return view('download', [
+                        'error' => false,
+                        'fileId' => $fileId,
+                        'status' => $statusInfo['status'],
+                        'originalName' => $statusInfo['original_name'],
+                        'processingType' => $statusInfo['processing_type'],
+                        'message' => 'File is still being processed. Current status: ' . $statusInfo['status']
+                    ]);
+                }
+
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'File processing not completed',
+                    'current_status' => $statusInfo['status']
+                ], 400);
+            }
+
+            // Get processed file
+            $processedFile = $this->fileService->getProcessedFile($fileId);
+
+            if (!$processedFile) {
+                if ($request->acceptsHtml() && !$request->has('direct')) {
+                    return view('download', [
+                        'error' => true,
+                        'message' => 'Processed file not found on disk',
+                        'fileId' => $fileId,
+                        'status' => 'error'
+                    ]);
+                }
+
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Processed file not found'
                 ], 404);
             }
 
             // For browser requests, show download page
             if ($request->acceptsHtml() && !$request->has('direct')) {
-                $status = FileProcessingStatus::where('file_id', $fileId)->first();
-
                 return view('download', [
                     'error' => false,
                     'fileId' => $fileId,
                     'fileName' => $processedFile['name'],
-                    'originalName' => $status->original_name ?? 'processed_file',
+                    'originalName' => $statusInfo['original_name'],
                     'fileSize' => filesize($processedFile['path']),
                     'status' => 'completed',
-                    'processingType' => $status->processing_type ?? 'unknown',
-                    'completedAt' => $status->completed_at ?? now(),
+                    'processingType' => $statusInfo['processing_type'],
+                    'completedAt' => $statusInfo['completed_at'],
                     'downloadUrl' => route('queue.download', ['fileId' => $fileId, 'direct' => 1])
                 ]);
             }
@@ -86,7 +123,7 @@ class FileDownloadController extends Controller
             }
 
             return response()->json([
-                'success' => false,
+                'status' => 'error',
                 'message' => 'Download failed',
                 'error' => $e->getMessage()
             ], 500);
@@ -98,29 +135,31 @@ class FileDownloadController extends Controller
      */
     public function downloadOriginal(Request $request, string $fileId)
     {
-        $status = FileProcessingStatus::where('file_id', $fileId)->first();
+        $statusInfo = $this->fileService->getStatus($fileId);
 
-        if (!$status) {
+        if (!$statusInfo['success']) {
             return response()->json([
-                'success' => false,
+                'status' => 'error',
                 'message' => 'File not found'
             ], 404);
         }
 
-        if (!Storage::exists($status->file_path)) {
+        $filePath = 'uploads/' . $fileId . '.' . pathinfo($statusInfo['original_name'], PATHINFO_EXTENSION);
+
+        if (!Storage::exists($filePath)) {
             return response()->json([
-                'success' => false,
+                'status' => 'error',
                 'message' => 'Original file no longer exists'
             ], 404);
         }
 
-        $path = storage_path('app/' . $status->file_path);
+        $path = storage_path('app/' . $filePath);
 
         return response()->download(
             $path,
-            $status->original_name,
+            $statusInfo['original_name'],
             [
-                'Content-Type' => $status->mime_type ?? 'application/octet-stream',
+                'Content-Type' => 'application/octet-stream',
                 'Cache-Control' => 'no-cache, no-store, must-revalidate'
             ]
         );
@@ -131,11 +170,11 @@ class FileDownloadController extends Controller
      */
     public function getDownloadUrl(string $fileId)
     {
-        $status = FileProcessingStatus::where('file_id', $fileId)->first();
+        $statusInfo = $this->fileService->getStatus($fileId);
 
-        if (!$status || !$status->isCompleted()) {
+        if (!$statusInfo['success'] || $statusInfo['status'] !== 'completed') {
             return response()->json([
-                'success' => false,
+                'status' => 'error',
                 'message' => 'File not ready for download'
             ], 404);
         }
@@ -151,7 +190,7 @@ class FileDownloadController extends Controller
         );
 
         return response()->json([
-            'success' => true,
+            'status' => 'success',
             'file_id' => $fileId,
             'download_url' => $url,
             'signed_url' => $signedUrl,
