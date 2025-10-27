@@ -41,11 +41,15 @@ class FileProcessingService
             $status = $this->uploadAndQueue($uploadDto);
 
             return [
-                'success' => true,
+                'status' => 'success',
                 'message' => 'File uploaded and queued for processing',
-                'file_id' => $status->fileId,
-                'status' => $status->status,
-                'processing_type' => $status->processingType
+                'data' => [
+                    'file_id' => $status->fileId,
+                    'original_name' => $status->originalName,
+                    'processing_type' => $status->processingType,
+                    'status_url' => url('/api/queue/file-status/' . $status->fileId),
+                    'download_url' => url('/api/queue/download/' . $status->fileId),
+                ]
             ];
 
         } catch (\Exception $e) {
@@ -54,7 +58,7 @@ class FileProcessingService
             ]);
 
             return [
-                'success' => false,
+                'status' => 'error',
                 'message' => 'File upload failed',
                 'error' => $e->getMessage()
             ];
