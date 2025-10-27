@@ -2,6 +2,8 @@
 
 This is a Laravel application I built to demonstrate a robust queue-based file processing system with automated CI/CD deployment through GitHub Actions.
 
+**Security Note:** This repository is safe to be public. All sensitive data (database passwords, server IPs, SSH keys) are stored in GitHub Secrets or environment variables, never in the code itself. The ngrok URL shown below is intentionally public for demo purposes and has rate limiting protection.
+
 ## Live Demo - Ready to Test!
 
 The application is **already deployed and running** with ngrok. You can test all endpoints immediately using the base URL:
@@ -612,16 +614,20 @@ The repository includes a complete CI/CD pipeline (`.github/workflows/deploy.yml
 
 ### Setting Up CI/CD
 
+Note about security: All sensitive information like passwords, server IPs, and usernames are stored securely in GitHub Secrets, not in the code. This is why the repository can be public without exposing any real credentials.
+
 1. **Configure GitHub Secrets:**
-   - Go to repository Settings → Secrets → Actions
-   - Add required secrets:
-     - `SSH_PRIVATE_KEY`: Your deployment SSH key
-     - `DEPLOY_HOST`: Your server IP/hostname
-     - `DEPLOY_USER`: Your deployment user
-     - `DB_PASSWORD`: Production database password
+   Go to your repository Settings, then Secrets and variables, then Actions. Here you'll add the actual sensitive values that the deployment needs:
+
+   - `SSH_PRIVATE_KEY`: Your server's SSH private key for deployment access
+   - `DEPLOY_HOST`: The real IP address or hostname of your server
+   - `DEPLOY_USER`: The actual username used for deployment
+   - `DB_PASSWORD`: Your production database password
+
+   These secrets are encrypted by GitHub and never exposed in logs or to the public. Even after setting them, you can't view them again - you can only update or delete them. The deployment workflow accesses these securely during the automated deployment process.
 
 2. **Deploy:**
-   - Push to main branch to trigger automatic deployment
+   Once secrets are configured, simply push your code to the main branch. The GitHub Actions workflow will automatically deploy using the secrets you've configured
 
 ### Manual Deployment Steps
 
