@@ -7,6 +7,10 @@ use Illuminate\Support\Facades\Redis;
 use App\Http\Controllers\QueueController;
 use App\Http\Controllers\Api\FileController;
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\FileUploadController;
+use App\Http\Controllers\FileDownloadController;
+use App\Http\Controllers\FileStatusController;
+use App\Http\Controllers\NotificationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -24,12 +28,14 @@ Route::prefix('queue')->group(function () {
     Route::middleware(['rate.limit:relaxed'])->group(function () {
         Route::get('/', [QueueController::class, 'index']);
         Route::get('/status', [QueueController::class, 'queueStatus']);
-        Route::get('/file-status/{fileId}', [QueueController::class, 'fileStatus']);
+        Route::get('/file-status/{fileId}', [FileStatusController::class, 'getStatus']);
+        Route::get('/statistics', [FileStatusController::class, 'getStatistics']);
+        Route::get('/queue-health', [FileStatusController::class, 'getQueueHealth']);
     });
 
     // Notification and logging endpoints (moderate rate limit - 30/min)
     Route::middleware(['rate.limit:moderate'])->group(function () {
-        Route::post('/dispatch-notification', [QueueController::class, 'dispatchNotification']);
+        Route::post('/dispatch-notification', [NotificationController::class, 'dispatch']);
         Route::post('/dispatch-log', [QueueController::class, 'dispatchLog']);
     });
 
@@ -40,8 +46,10 @@ Route::prefix('queue')->group(function () {
 
     // File processing endpoints (moderate rate limit - 30/min)
     Route::middleware(['rate.limit:moderate'])->group(function () {
-        Route::post('/upload-file', [QueueController::class, 'uploadFile']);
-        Route::get('/download/{fileId}', [QueueController::class, 'downloadProcessed'])->name('queue.download');
+        Route::post('/upload-file', [FileUploadController::class, 'upload']);
+        Route::get('/download/{fileId}', [FileDownloadController::class, 'download'])->name('queue.download');
+        Route::post('/retry/{fileId}', [FileStatusController::class, 'retry']);
+        Route::post('/cancel/{fileId}', [FileStatusController::class, 'cancel']);
     });
 });
 
