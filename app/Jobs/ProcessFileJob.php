@@ -65,7 +65,7 @@ class ProcessFileJob implements ShouldQueue
 
             // Store processed file info
             $statusRepository->updateStatus($this->fileId, 'completed', [
-                'processed_file' => $processedFilePath
+                'processed_path' => $processedFilePath
             ]);
 
             Log::info('File processing completed', [

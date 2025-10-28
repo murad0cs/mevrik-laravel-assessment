@@ -85,7 +85,7 @@ class FileProcessingService
             $status = new FileStatusDTO(
                 fileId: $uploadDto->fileId,
                 userId: $uploadDto->userId,
-                status: 'queued',
+                status: 'pending',
                 processingType: $uploadDto->processingType,
                 originalFile: $fileName,
                 originalName: $uploadDto->getOriginalName(),
@@ -151,7 +151,7 @@ class FileProcessingService
 
                 // Update status to completed
                 $this->statusRepository->updateStatus($fileId, 'completed', [
-                    'processed_file' => $processedFileName
+                    'processed_path' => $processedFileName
                 ]);
 
                 Log::info('File processing completed', [
@@ -292,8 +292,8 @@ class FileProcessingService
                 ];
             }
 
-            // Reset status to queued
-            $this->statusRepository->updateStatus($fileId, 'queued');
+            // Reset status to pending
+            $this->statusRepository->updateStatus($fileId, 'pending');
 
             // Re-dispatch the job
             ProcessFileJob::dispatch(
