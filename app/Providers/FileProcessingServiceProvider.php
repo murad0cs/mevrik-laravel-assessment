@@ -7,6 +7,7 @@ use App\Contracts\FileStorageInterface;
 use App\Contracts\StatusRepositoryInterface;
 use App\Repositories\FileStorageRepository;
 use App\Repositories\FileStatusRepository;
+use App\Repositories\FileProcessingStatusRepository;
 use App\Services\FileProcessingService;
 use App\Services\FileProcessors\FileProcessorFactory;
 
@@ -25,7 +26,7 @@ class FileProcessingServiceProvider extends ServiceProvider
 
         $this->app->bind(
             StatusRepositoryInterface::class,
-            FileStatusRepository::class
+            FileProcessingStatusRepository::class // Changed from FileStatusRepository (JSON) to Database
         );
 
         // Register FileProcessorFactory as singleton for performance

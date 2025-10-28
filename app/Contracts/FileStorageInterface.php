@@ -57,4 +57,12 @@ interface FileStorageInterface
      * @return bool
      */
     public function put(string $path, string $content): bool;
+
+    /**
+     * Get the full filesystem path to a file
+     *
+     * @param string $path
+     * @return string
+     */
+    public function path(string $path): string;
 }

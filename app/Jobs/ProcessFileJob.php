@@ -2,6 +2,8 @@
 
 namespace App\Jobs;
 
+use App\Contracts\StatusRepositoryInterface;
+use App\Services\FileProcessors\FileProcessorFactory;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -34,8 +36,10 @@ class ProcessFileJob implements ShouldQueue
     /**
      * Execute the job.
      */
-    public function handle(): void
-    {
+    public function handle(
+        StatusRepositoryInterface $statusRepository,
+        FileProcessorFactory $processorFactory
+    ): void {
         try {
             // Ensure all required directories exist with proper permissions
             $this->ensureDirectoriesExist();
@@ -47,7 +51,7 @@ class ProcessFileJob implements ShouldQueue
             ]);
 
             // Update status to processing
-            $this->updateStatus('processing');
+            $statusRepository->updateStatus($this->fileId, 'processing');
 
             // Get the uploaded file path
             $uploadedFilePath = storage_path('app/uploads/' . $this->filePath);
@@ -56,14 +60,13 @@ class ProcessFileJob implements ShouldQueue
                 throw new \Exception('File not found: ' . $uploadedFilePath);
             }
 
-            // Process based on type
-            $processedFilePath = $this->processFile($uploadedFilePath);
+            // Process based on type using processor factory
+            $processedFilePath = $this->processFile($uploadedFilePath, $processorFactory);
 
             // Store processed file info
-            $this->storeProcessedFile($processedFilePath);
-
-            // Update status to completed
-            $this->updateStatus('completed');
+            $statusRepository->updateStatus($this->fileId, 'completed', [
+                'processed_file' => $processedFilePath
+            ]);
 
             Log::info('File processing completed', [
                 'file_id' => $this->fileId,
@@ -76,167 +79,56 @@ class ProcessFileJob implements ShouldQueue
                 'error' => $e->getMessage()
             ]);
 
-            $this->updateStatus('failed', $e->getMessage());
+            $statusRepository->updateStatus($this->fileId, 'failed', [
+                'error' => $e->getMessage()
+            ]);
             throw $e;
         }
     }
 
     /**
-     * Process the file based on type
+     * Process the file using the appropriate processor
      */
-    private function processFile(string $filePath): string
+    private function processFile(string $filePath, FileProcessorFactory $factory): string
     {
+        // Ensure processed directory exists
         $processedDir = storage_path('app/processed');
         if (!file_exists($processedDir)) {
             mkdir($processedDir, 0755, true);
         }
 
-        $fileExtension = pathinfo($filePath, PATHINFO_EXTENSION);
-        $processedFileName = $this->fileId . '_processed.' . $fileExtension;
+        // Get the appropriate processor for this processing type
+        $processor = $factory->make($this->processingType);
+
+        Log::info('Using processor', [
+            'file_id' => $this->fileId,
+            'processor' => get_class($processor),
+            'type' => $this->processingType
+        ]);
+
+        // Process the file and get result DTO
+        $result = $processor->process($filePath);
+
+        // Check if processing was successful
+        if (!$result->success) {
+            throw new \Exception($result->error ?? 'File processing failed');
+        }
+
+        // Generate filename with correct extension from processor
+        $processedFileName = $this->fileId . '_processed.' . $result->extension;
         $processedFilePath = $processedDir . '/' . $processedFileName;
 
-        switch ($this->processingType) {
-            case 'text_transform':
-                $this->processTextFile($filePath, $processedFilePath);
-                break;
+        // Save the processed content
+        file_put_contents($processedFilePath, $result->content);
 
-            case 'csv_analyze':
-                $this->processCSVFile($filePath, $processedFilePath);
-                break;
-
-            case 'image_resize':
-                $this->processImageFile($filePath, $processedFilePath);
-                break;
-
-            case 'json_format':
-                $this->processJSONFile($filePath, $processedFilePath);
-                break;
-
-            default:
-                // Default processing - add metadata
-                $this->addMetadata($filePath, $processedFilePath);
-        }
+        Log::info('File processed successfully', [
+            'file_id' => $this->fileId,
+            'output_file' => $processedFileName,
+            'extension' => $result->extension,
+            'size' => strlen($result->content)
+        ]);
 
         return $processedFileName;
-    }
-
-    /**
-     * Process text file - convert to uppercase and add line numbers
-     */
-    private function processTextFile(string $input, string $output): void
-    {
-        $content = file_get_contents($input);
-        $lines = explode("\n", $content);
-
-        $processed = [];
-        foreach ($lines as $index => $line) {
-            $lineNumber = $index + 1;
-            $processed[] = sprintf("%03d: %s", $lineNumber, strtoupper($line));
-        }
-
-        $processedContent = "PROCESSED BY MEVRIK QUEUE SYSTEM\n";
-        $processedContent .= "Original File: " . basename($input) . "\n";
-        $processedContent .= "Processed At: " . now()->toDateTimeString() . "\n";
-        $processedContent .= "Processing Type: Text Transform (Uppercase + Line Numbers)\n";
-        $processedContent .= str_repeat('=', 50) . "\n\n";
-        $processedContent .= implode("\n", $processed);
-
-        file_put_contents($output, $processedContent);
-    }
-
-    /**
-     * Process CSV file - add summary statistics
-     */
-    private function processCSVFile(string $input, string $output): void
-    {
-        $rows = array_map('str_getcsv', file($input));
-        $header = array_shift($rows);
-
-        $summary = "CSV ANALYSIS REPORT\n";
-        $summary .= "Processed At: " . now()->toDateTimeString() . "\n";
-        $summary .= str_repeat('=', 50) . "\n";
-        $summary .= "Total Columns: " . count($header) . "\n";
-        $summary .= "Total Rows: " . count($rows) . "\n";
-        $summary .= "Column Names: " . implode(', ', $header) . "\n\n";
-
-        // Add first 10 rows as sample
-        $summary .= "SAMPLE DATA (First 10 rows):\n";
-        $summary .= implode(',', $header) . "\n";
-
-        foreach (array_slice($rows, 0, 10) as $row) {
-            $summary .= implode(',', $row) . "\n";
-        }
-
-        file_put_contents($output, $summary);
-    }
-
-    /**
-     * Process image file - create thumbnail info
-     */
-    private function processImageFile(string $input, string $output): void
-    {
-        $imageInfo = getimagesize($input);
-
-        $report = "IMAGE PROCESSING REPORT\n";
-        $report .= "Processed At: " . now()->toDateTimeString() . "\n";
-        $report .= str_repeat('=', 50) . "\n";
-        $report .= "Original File: " . basename($input) . "\n";
-        $report .= "File Size: " . number_format(filesize($input) / 1024, 2) . " KB\n";
-        $report .= "Dimensions: " . ($imageInfo[0] ?? 'unknown') . " x " . ($imageInfo[1] ?? 'unknown') . " pixels\n";
-        $report .= "MIME Type: " . ($imageInfo['mime'] ?? 'unknown') . "\n";
-        $report .= "Processing: Would resize to 200x200 thumbnail\n";
-
-        file_put_contents($output, $report);
-    }
-
-    /**
-     * Process JSON file - format and validate
-     */
-    private function processJSONFile(string $input, string $output): void
-    {
-        $content = file_get_contents($input);
-        $data = json_decode($content, true);
-
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            $error = "JSON VALIDATION ERROR: " . json_last_error_msg();
-            file_put_contents($output, $error);
-            return;
-        }
-
-        $formatted = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-
-        $result = "JSON PROCESSING REPORT\n";
-        $result .= "Processed At: " . now()->toDateTimeString() . "\n";
-        $result .= str_repeat('=', 50) . "\n";
-        $result .= "Validation: PASSED\n";
-        $result .= "Total Keys: " . count($data) . "\n\n";
-        $result .= "FORMATTED JSON:\n";
-        $result .= $formatted;
-
-        file_put_contents($output, $result);
-    }
-
-    /**
-     * Default processing - add metadata
-     */
-    private function addMetadata(string $input, string $output): void
-    {
-        $content = file_get_contents($input);
-
-        $metadata = "FILE PROCESSING METADATA\n";
-        $metadata .= str_repeat('=', 50) . "\n";
-        $metadata .= "Processed by Mevrik Queue System\n";
-        $metadata .= "File ID: " . $this->fileId . "\n";
-        $metadata .= "User ID: " . $this->userId . "\n";
-        $metadata .= "Original File: " . basename($input) . "\n";
-        $metadata .= "File Size: " . number_format(filesize($input) / 1024, 2) . " KB\n";
-        $metadata .= "Processing Type: " . $this->processingType . "\n";
-        $metadata .= "Processed At: " . now()->toDateTimeString() . "\n";
-        $metadata .= str_repeat('=', 50) . "\n\n";
-        $metadata .= "ORIGINAL CONTENT:\n";
-        $metadata .= $content;
-
-        file_put_contents($output, $metadata);
     }
 
     /**
@@ -262,68 +154,4 @@ class ProcessFileJob implements ShouldQueue
         }
     }
 
-    /**
-     * Update processing status in database
-     */
-    private function updateStatus(string $status, string $error = null): void
-    {
-        $statusPath = 'processing_status/' . $this->fileId . '.json';
-
-        // First, read existing status data if it exists
-        if (Storage::exists($statusPath)) {
-            $statusData = json_decode(Storage::get($statusPath), true);
-        } else {
-            $statusData = [];
-        }
-
-        // Update with new values (preserving existing fields like processed_file and original_name)
-        $statusData['file_id'] = $this->fileId;
-        $statusData['user_id'] = $this->userId;
-        $statusData['status'] = $status;
-        $statusData['processing_type'] = $this->processingType;
-        $statusData['original_file'] = $this->filePath;
-        $statusData['updated_at'] = now()->toDateTimeString();
-        $statusData['error'] = $error;
-
-        // Preserve original_name if it exists
-        if (!isset($statusData['original_name']) && $this->filePath) {
-            // Extract original name from the file path if not already set
-            $statusData['original_name'] = basename($this->filePath);
-        }
-
-        if ($status === 'completed') {
-            $statusData['download_ready'] = true;
-        }
-
-        // Use Storage facade which handles permissions better
-        Storage::put($statusPath, json_encode($statusData, JSON_PRETTY_PRINT));
-    }
-
-    /**
-     * Store processed file info
-     */
-    private function storeProcessedFile(string $processedFileName): void
-    {
-        $statusPath = 'processing_status/' . $this->fileId . '.json';
-
-        // Check if status file exists
-        if (Storage::exists($statusPath)) {
-            $data = json_decode(Storage::get($statusPath), true);
-        } else {
-            // If file doesn't exist, create basic structure
-            $data = [
-                'file_id' => $this->fileId,
-                'user_id' => $this->userId,
-                'status' => 'completed',
-                'processing_type' => $this->processingType,
-                'original_file' => $this->filePath,
-            ];
-        }
-
-        $data['processed_file'] = $processedFileName;
-        $data['completed_at'] = now()->toDateTimeString();
-        $data['download_ready'] = true;
-
-        Storage::put($statusPath, json_encode($data, JSON_PRETTY_PRINT));
-    }
 }
