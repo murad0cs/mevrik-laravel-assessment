@@ -77,8 +77,8 @@ class FileStatusDTO
         return $this->status === 'processing';
     }
 
-    public function isQueued(): bool
+    public function isPending(): bool
     {
-        return $this->status === 'queued';
+        return $this->status === 'pending';
     }
 }
